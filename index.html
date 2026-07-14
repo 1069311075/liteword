@@ -2829,18 +2829,37 @@ function updateCardContent(w, card, prevBtn, skipBtn, nextBtn) {
 }
 
 // TTS 发音
+let ttsVoicesReady = false;
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => { ttsVoicesReady = true; };
+  setTimeout(() => { if (window.speechSynthesis.getVoices().length > 0) ttsVoicesReady = true; }, 100);
+}
+
 function speakWord() {
   const w = currentQueue[currentIndex];
-  if (!w || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(w.word);
-  u.lang = 'en-US';
-  u.rate = 0.85;
+  if (!w) return;
   const speakBtn = document.getElementById('speak-btn');
   if (speakBtn) speakBtn.classList.add('playing');
-  u.onend = () => { if (speakBtn) speakBtn.classList.remove('playing'); };
-  u.onerror = () => { if (speakBtn) speakBtn.classList.remove('playing'); };
-  window.speechSynthesis.speak(u);
+
+  // 优先用浏览器内置 TTS（如果英语语音可用）
+  const voices = window.speechSynthesis ? window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('en')) : [];
+  if (voices.length > 0) {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(w.word);
+    u.voice = voices[0];
+    u.lang = voices[0].lang;
+    u.rate = 0.85;
+    u.onend = () => { if (speakBtn) speakBtn.classList.remove('playing'); };
+    u.onerror = () => { if (speakBtn) speakBtn.classList.remove('playing'); };
+    window.speechSynthesis.speak(u);
+    return;
+  }
+
+  // 回退：用 Google Translate TTS 音频
+  const audio = new Audio('https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(w.word) + '&type=2');
+  audio.onended = () => { if (speakBtn) speakBtn.classList.remove('playing'); };
+  audio.onerror = () => { if (speakBtn) speakBtn.classList.remove('playing'); };
+  audio.play().catch(() => { if (speakBtn) speakBtn.classList.remove('playing'); });
 }
 
 function revealWord() {
