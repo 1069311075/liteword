@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 通知栏小图标：必须为纯白单色剪影 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 打开的书本 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,4h4a2,2 0 0,1 2,2v12a2,2 0 0,0 -2,-2H6a2,2 0 0,1 -2,-2V6a2,2 0 0,1 2,-2z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18,4h-4a2,2 0 0,0 -2,2v12a2,2 0 0,1 2,-2h4a2,2 0 0,0 2,-2V6a2,2 0 0,0 -2,-2z" />
+</vector>

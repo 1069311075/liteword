@@ -1,7 +1,23 @@
-﻿.uploads/
+.uploads/
 .trae-html-share-packages/
 sentence_zh.js
 word-memory-proposal/
 *.jpg
 报名帖正文.md
 轻词LiteWord_创意提案.html
+
+# 依赖与构建产物
+node_modules/
+*.apk
+releases/
+C:/trae_build/
+android/app/build/
+android/build/
+android/.gradle/
+android/.cxx/
+*.keystore
+*.jks
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db

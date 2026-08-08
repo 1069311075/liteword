@@ -1,0 +1,11 @@
+{
+  "appId": "com.liteword.app",
+  "appName": "轻词",
+  "webDir": "www",
+  "backgroundColor": "#0a0e1a",
+  "android": {
+    "backgroundColor": "#0a0e1a",
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}
