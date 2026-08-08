@@ -897,11 +897,19 @@ body.video-fallback .bg-fallback-static {
   display:flex; align-items:center; justify-content:space-between;
   gap:8px; margin-bottom:4px;
 }
+.lib-item-name-wrap {
+  display:flex; align-items:baseline; gap:6px; min-width:0;
+}
 .lib-item-name {
   font-size:0.8125rem; font-weight:400; color:var(--text);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .lib-item:not(.selected) .lib-item-name { color:var(--text-dim); }
+.lib-item-count {
+  font-size:0.625rem; font-weight:500; color:var(--text-dim);
+  flex-shrink:0; font-variant-numeric:tabular-nums;
+  letter-spacing:0.01em;
+}
 .lib-item-status {
   font-size:0.5625rem; font-weight:500; letter-spacing:0.05em;
   padding:1px 7px; border-radius:999px; flex-shrink:0;

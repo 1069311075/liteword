@@ -788,6 +788,7 @@ function renderLibPanelList() {
   allCats.forEach(cat => {
     // 统一口径：进度/状态来自同一词集与学习记录，选中与未选显示一致
     const st = libStats(cat);
+    const wordCount = st.total; // 词库实际词数（在 learnable 覆盖前保留）
     // 选中词库 total 与顶部新词数对齐
     if (activeCat === cat && learnable[cat]) st.total = learnable[cat].total;
     const label = SCENE_LABELS[cat] || cat;
@@ -809,9 +810,12 @@ function renderLibPanelList() {
     html += '<div class="'+itemClass+'" data-cat="'+cat+'" onclick="toggleCategory(this)">';
     html += '<div class="lib-check">'+checkSvg+'</div>';
     html += '<div class="lib-item-body">';
-    // 行1：名称 + 状态
+    // 行1：名称 + 词数 + 状态
     html += '<div class="lib-item-title-row">';
+    html += '<div class="lib-item-name-wrap">';
     html += '<div class="lib-item-name">'+label+'</div>';
+    html += '<span class="lib-item-count">'+wordCount+' 词</span>';
+    html += '</div>';
     html += '<span class="lib-item-status '+statusClass+'">'+statusText+'</span>';
     html += '</div>';
     // 行2：进度条 + 百分比 + 操作（浓缩为单行，紧凑）
