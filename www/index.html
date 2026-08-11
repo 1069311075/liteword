@@ -258,6 +258,7 @@
               </div>
             </div>
             <button class="btn btn-primary" id="btn-again" onclick="startLearn()" style="margin-bottom:12px; max-width:240px;">再学一组</button>
+            <button class="btn btn-glass" onclick="addReviewCalendarEvent(true)" style="margin-bottom:12px; max-width:240px;">添加复习日程</button>
             <button class="btn btn-glass" onclick="showPage('home'); refreshHome();" style="margin-bottom:12px; max-width:240px;">回到首页</button>
           </div>
         </div>
@@ -280,7 +281,7 @@
               </div>
             </div>
             <div class="setting-item">
-              <div class="setting-label">字体<br/><span style="font-size:0.625rem;color:rgba(255,255,255,0.35);">英文与数字的呈现风格</span></div>
+              <div class="setting-label">字体<br/><span class="setting-sub">英文与数字的呈现风格</span></div>
               <div class="voice-toggle" id="font-toggle">
                 <button class="voice-btn active" id="font-classic" onclick="setFontMode('classic')">经典</button>
                 <button class="voice-btn" id="font-refined" onclick="setFontMode('refined')">精选</button>
@@ -291,10 +292,10 @@
           <div class="settings-group lg" id="bg-video-settings" style="display:none;">
             <div class="setting-item">
               <div class="setting-label">背景动画</div>
-              <button class="setting-btn" id="btn-bgVideo" onclick="toggleBgVideo()" style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);">开启</button>
+              <button class="setting-btn" id="btn-bgVideo" onclick="toggleBgVideo()" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">开启</button>
             </div>
             <div class="setting-item single" id="bg-video-upload-row" style="cursor:pointer;" onclick="document.getElementById('file-bgVideo').click()">
-              <div class="setting-label">更换背景视频<br/><span style="font-size:0.625rem;color:rgba(255,255,255,0.35);" id="bg-video-name">从相册选择视频文件</span></div>
+              <div class="setting-label">更换背景视频<br/><span class="setting-sub" id="bg-video-name">从相册选择视频文件</span></div>
               <button class="setting-btn" id="btn-bgVideoUpload">选择</button>
               <input type="file" id="file-bgVideo" accept="video/*" style="display:none;" onchange="handleBgVideoUpload(this)">
             </div>
@@ -311,15 +312,23 @@
             </div>
             <div class="setting-item">
               <div class="setting-label">每日复习提醒</div>
-              <button class="setting-btn" id="btn-notify" onclick="toggleNotification()" style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);">开启</button>
+              <button class="setting-btn" id="btn-notify" onclick="toggleNotification()" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">开启</button>
             </div>
             <div class="setting-item" id="notify-time-row" style="display:none;">
               <div class="setting-label">提醒时间</div>
               <input type="time" class="setting-input" id="set-notifyTime" value="20:00" style="width:100px;" onchange="updateNotifyTime()">
             </div>
             <div class="setting-item">
+              <div class="setting-label">复习日程<br/><span class="setting-sub">学完后写入系统日历，到点提醒</span></div>
+              <button class="setting-btn" id="btn-calendar" onclick="toggleCalendarReview()" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">开启</button>
+            </div>
+            <div class="setting-item" id="calendar-defer-row" style="display:none;">
+              <div class="setting-label">深夜顺延到<br/><span class="setting-sub">23:00后自动顺延至次日</span></div>
+              <input type="time" class="setting-input" id="set-calendarDefer" value="08:00" style="width:100px;" onchange="updateCalendarDefer()">
+            </div>
+            <div class="setting-item">
               <div class="setting-label">操作提示</div>
-              <button class="setting-btn" id="btn-hints" onclick="toggleHints()" style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);">已开启</button>
+              <button class="setting-btn" id="btn-hints" onclick="toggleHints()" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">已开启</button>
             </div>
           </div>
           <div class="settings-group-title">发音设置</div>
@@ -332,15 +341,15 @@
               </div>
             </div>
             <div class="setting-item single">
-              <div class="setting-label">离线引擎音色<br/><span style="font-size:0.625rem;color:rgba(255,255,255,0.35);">无网络时使用系统TTS，可在此切换引擎</span></div>
+              <div class="setting-label">离线引擎音色<br/><span class="setting-sub">无网络时使用系统TTS，可在此切换引擎</span></div>
               <button class="setting-btn" onclick="openSystemTTS()">系统设置</button>
             </div>
           </div>
           <div class="settings-group-title">数据管理</div>
           <div class="settings-group lg">
             <div class="setting-item single" id="import-entry" style="cursor:pointer;" onclick="openImportPanel()">
-              <div class="setting-label">导入词库<br/><span style="font-size:0.625rem;color:rgba(255,255,255,0.35);">用 AI 生成自定义词库</span></div>
-              <button class="setting-btn" style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);">打开</button>
+              <div class="setting-label">导入词库<br/><span class="setting-sub">用 AI 生成自定义词库</span></div>
+              <button class="setting-btn" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">打开</button>
             </div>
             <div class="setting-item single">
               <div class="setting-label">重置所有数据</div>

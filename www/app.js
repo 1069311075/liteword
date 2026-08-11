@@ -21,7 +21,7 @@ const STORAGE_KEY_PROGRESS = 'lw_progress';
 let selectedCategories = new Set();
 
 function getConfig() {
-  const defaultConfig = { groupSize:20, notifyEnabled:false, notifyTime:'20:00', voiceType:'us', categories:['ai-prompt'], bgVideoUrl:'', bgVideoEnabled:true, themeMode:'frost', showHints:true, fontMode:'classic' };
+  const defaultConfig = { groupSize:20, notifyEnabled:false, notifyTime:'20:00', voiceType:'us', categories:['ai-prompt'], bgVideoUrl:'', bgVideoEnabled:true, themeMode:'frost', showHints:true, fontMode:'classic', calendarReview:false, calendarDefer:'08:00' };
   try {
     const saved = Store.getItem(STORAGE_KEY_CONFIG);
     return saved ? {...defaultConfig, ...JSON.parse(saved)} : defaultConfig;
@@ -732,6 +732,7 @@ function refreshHome() {
   if (voiceUs) voiceUs.classList.toggle('active', config.voiceType !== 'uk');
   if (voiceUk) voiceUk.classList.toggle('active', config.voiceType === 'uk');
   updateNotifyButton();
+  updateCalendarButton();
 }
 
 // ========== 词库管理面板 ==========
@@ -1775,6 +1776,10 @@ function finishStudy() {
   }
   // 刷新首页数据
   setTimeout(() => refreshHome(), 100);
+  // 复习日程：若已开启，学完后自动写入系统日历
+  if (getConfig().calendarReview) {
+    setTimeout(() => addReviewCalendarEvent(false), 300);
+  }
 }
 function confirmExit() {
   if (currentIndex>0 && currentIndex<currentQueue.length) {
@@ -1817,9 +1822,9 @@ function updateBgVideoUI() {
   const resetBtn = document.getElementById('btn-bgVideoReset');
   if (btn) {
     btn.textContent = on ? '已开启' : '已关闭';
-    btn.style.background = on ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.08)';
-    btn.style.borderColor = on ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.12)';
-    btn.style.color = on ? '#4ade80' : 'rgba(255,255,255,0.7)';
+    btn.style.background = on ? 'var(--tg-on-bg)' : 'var(--tg-off-bg)';
+    btn.style.borderColor = on ? 'var(--tg-on-border)' : 'var(--tg-off-border)';
+    btn.style.color = on ? 'var(--tg-on-color)' : 'var(--tg-off-color)';
   }
   [upBtn, resetBtn].forEach(el => { if (el) el.disabled = !on; });
   if (upRow) upRow.style.opacity = on ? '1' : '0.4';
@@ -1946,9 +1951,9 @@ function updateHintsUI() {
   const btn = document.getElementById('btn-hints');
   if (btn) {
     btn.textContent = on ? '已开启' : '已关闭';
-    btn.style.background = on ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.08)';
-    btn.style.borderColor = on ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.12)';
-    btn.style.color = on ? '#4ade80' : 'rgba(255,255,255,0.7)';
+    btn.style.background = on ? 'var(--tg-on-bg)' : 'var(--tg-off-bg)';
+    btn.style.borderColor = on ? 'var(--tg-on-border)' : 'var(--tg-off-border)';
+    btn.style.color = on ? 'var(--tg-on-color)' : 'var(--tg-off-color)';
   }
 }
 
@@ -2118,17 +2123,17 @@ async function updateNotifyButton() {
 
   if (config.notifyEnabled) {
     btn.textContent = '已开启';
-    btn.style.background = 'rgba(34,197,94,0.15)';
-    btn.style.borderColor = 'rgba(34,197,94,0.3)';
-    btn.style.color = '#4ade80';
+    btn.style.background = 'var(--tg-on-bg)';
+    btn.style.borderColor = 'var(--tg-on-border)';
+    btn.style.color = 'var(--tg-on-color)';
     btn.style.opacity = '1';
     btn.style.pointerEvents = 'auto';
     if (timeRow) timeRow.style.display = 'flex';
   } else {
     btn.textContent = '开启';
-    btn.style.background = 'rgba(255,255,255,0.08)';
-    btn.style.borderColor = 'rgba(255,255,255,0.12)';
-    btn.style.color = 'rgba(255,255,255,0.7)';
+    btn.style.background = 'var(--tg-off-bg)';
+    btn.style.borderColor = 'var(--tg-off-border)';
+    btn.style.color = 'var(--tg-off-color)';
     btn.style.opacity = '1';
     btn.style.pointerEvents = 'auto';
     if (timeRow) timeRow.style.display = 'none';
@@ -2238,6 +2243,187 @@ async function checkReminder() {
       await scheduleDailyNotify(config.notifyTime || '20:00');
     }
   } catch(e) {}
+}
+
+// ========== 复习日程（写入系统日历） ==========
+// 学完一组后，把下一次复习时间写入手机系统日历，到点提醒复习。
+// 若复习时间落在深夜"安静时段"，自动顺延到次日晨间，避免半夜打扰。
+const STORAGE_KEY_CALENDAR_EVENTS = 'lw_calendar_events';
+const CALENDAR_EVENT_TITLE = '轻词 · 复习单词';
+const CALENDAR_QUIET_START = 23;  // 安静时段起点（23:00）
+const CALENDAR_QUIET_END = 8;     // 安静时段终点（08:00，此点不再视为安静）
+
+// 获取 CapacitorCalendar 插件（APP 环境），浏览器预览时返回 null
+function getCalendarPlugin() {
+  try {
+    const cap = window.Capacitor;
+    if (cap && cap.Plugins && cap.Plugins.CapacitorCalendar) return cap.Plugins.CapacitorCalendar;
+  } catch(e) {}
+  return null;
+}
+
+// 读取已记录的轻词日程事件ID
+function getCalendarEvents() {
+  try {
+    const s = Store.getItem(STORAGE_KEY_CALENDAR_EVENTS);
+    return s ? JSON.parse(s) : [];
+  } catch(e) { return []; }
+}
+function saveCalendarEvents(list) { Store.setItem(STORAGE_KEY_CALENDAR_EVENTS, JSON.stringify(list)); }
+
+// 深夜顺延：把落在安静时段(23:00-08:00)的复习时间顺延到指定时刻（默认次日08:00）
+function normalizeReviewTime(ts, deferTime) {
+  const d = new Date(ts);
+  const h = d.getHours();
+  if (h >= CALENDAR_QUIET_START || h < CALENDAR_QUIET_END) {
+    const parts = (deferTime || '08:00').split(':').map(n => parseInt(n) || 0);
+    const target = new Date(d);
+    target.setHours(parts[0], parts[1], 0, 0);
+    if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
+    return target.getTime();
+  }
+  return ts;
+}
+
+// 格式化日程时间（今天/明天/具体日期 + 时分）
+function formatEventTime(ts) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  const hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  const today = new Date().toDateString();
+  const tomorrow = new Date(Date.now() + 86400000).toDateString();
+  if (d.toDateString() === today) return '今天 ' + hm;
+  if (d.toDateString() === tomorrow) return '明天 ' + hm;
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hm;
+}
+
+// 请求日历读写权限（createEvent 需先查询默认日历，故需同时具备读权限）
+async function ensureCalendarPermission() {
+  const cc = getCalendarPlugin();
+  if (!cc) return false;
+  try {
+    const res = await cc.requestFullCalendarAccess();
+    return !!(res && res.result === 'granted');
+  } catch(e) { return false; }
+}
+
+// 删除之前添加的轻词日程
+async function deleteCalendarEvents() {
+  const cc = getCalendarPlugin();
+  if (!cc) return;
+  const list = getCalendarEvents();
+  for (const ev of list) {
+    try { await cc.deleteEvent({ id: ev.id }); } catch(e) {}
+  }
+  saveCalendarEvents([]);
+}
+
+// 添加复习日程到系统日历。manual=true 表示用户手动触发（完成页按钮）
+async function addReviewCalendarEvent(manual) {
+  const cc = getCalendarPlugin();
+  if (!cc) { toast('日程功能仅在APP中可用'); return; }
+  const config = getConfig();
+  const records = getRecords();
+  const rawTime = getNextDueTime(records);
+  if (!rawTime) { toast('当前没有待复习的安排'); return; }
+  const start = normalizeReviewTime(rawTime, config.calendarDefer || '08:00');
+  const end = start + 15 * 60 * 1000; // 复习日程时长15分钟
+
+  // 先删除旧的轻词日程，避免日历堆积
+  await deleteCalendarEvents();
+
+  // 请求日历权限
+  const ok = await ensureCalendarPermission();
+  if (!ok) { toast('需要日历权限才能添加日程'); return; }
+
+  try {
+    // 先创建事件（不带提醒），确保一定能写入系统日历；再尽力附加"到点提醒"。
+    // 若日历不支持提醒（部分无账户/本地日历），提醒附加失败不影响事件本身。
+    const res = await cc.createEvent({
+      title: CALENDAR_EVENT_TITLE,
+      description: '间隔复习，趁热打铁记得更牢',
+      startDate: start,
+      endDate: end
+    });
+    if (!res || !res.id) { toast('日程添加失败'); return; }
+    // 尽力添加"到点提醒"（0 = 日程开始时刻）
+    try { await cc.modifyEvent({ id: res.id, alerts: [0] }); } catch(e2) {}
+    saveCalendarEvents([{ id: res.id, start: start }]);
+    toast('已添加到系统日历 · ' + formatEventTime(start));
+  } catch(e) {
+    const msg = (e && e.message) ? String(e.message) : '';
+    if (msg.indexOf('No calendars') !== -1) {
+      toast('手机未找到日历账户，请先在系统「日历」中添加账户');
+    } else {
+      toast('日程添加失败，请检查日历权限');
+    }
+  }
+}
+
+// 设置页开关：复习日程
+async function toggleCalendarReview() {
+  const cc = getCalendarPlugin();
+  if (!cc) { toast('日程功能仅在APP中可用'); return; }
+  const config = getConfig();
+  if (!config.calendarReview) {
+    // 开启：先请求权限
+    const ok = await ensureCalendarPermission();
+    if (!ok) { toast('需要日历权限才能添加日程'); return; }
+    config.calendarReview = true;
+    saveConfigData(config);
+    toast('已开启复习日程');
+  } else {
+    // 关闭：删除已添加的日程
+    config.calendarReview = false;
+    saveConfigData(config);
+    await deleteCalendarEvents();
+    toast('已关闭复习日程');
+  }
+  updateCalendarButton();
+}
+
+// 更新设置页"复习日程"开关UI
+function updateCalendarButton() {
+  const config = getConfig();
+  const btn = document.getElementById('btn-calendar');
+  const deferRow = document.getElementById('calendar-defer-row');
+  const deferInput = document.getElementById('set-calendarDefer');
+  if (!btn) return;
+  if (deferInput) deferInput.value = config.calendarDefer || '08:00';
+  const cc = getCalendarPlugin();
+  if (!cc) {
+    btn.textContent = '仅APP支持';
+    btn.style.opacity = '0.4';
+    btn.style.pointerEvents = 'none';
+    if (deferRow) deferRow.style.display = 'none';
+    return;
+  }
+  if (config.calendarReview) {
+    btn.textContent = '已开启';
+    btn.style.background = 'var(--tg-on-bg)';
+    btn.style.borderColor = 'var(--tg-on-border)';
+    btn.style.color = 'var(--tg-on-color)';
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+    if (deferRow) deferRow.style.display = 'flex';
+  } else {
+    btn.textContent = '开启';
+    btn.style.background = 'var(--tg-off-bg)';
+    btn.style.borderColor = 'var(--tg-off-border)';
+    btn.style.color = 'var(--tg-off-color)';
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+    if (deferRow) deferRow.style.display = 'none';
+  }
+}
+
+// 更改深夜顺延时间：更新配置并（若已开启）重建日程
+async function updateCalendarDefer() {
+  const config = getConfig();
+  const input = document.getElementById('set-calendarDefer');
+  if (input) config.calendarDefer = input.value;
+  saveConfigData(config);
+  if (config.calendarReview) await addReviewCalendarEvent(true);
 }
 async function resetData() {
   const ok = await showConfirm('重置数据','确定要清空所有学习记录，并移除所有导入的词库、恢复默认分类吗？此操作不可恢复。');
@@ -2876,6 +3062,7 @@ async function init() {
       rightPanel.style.pointerEvents = 'none';
     }
     checkReminder();
+    updateCalendarButton();
     // 检查是否有未完成的学习，提示恢复
     const progress = getStudyProgress();
     if (progress && progress.queue && progress.queue.length > 0) {
