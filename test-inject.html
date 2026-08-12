@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Inject Test Data</title></head>
+<body>
+<script>
+localStorage.setItem('lw_records', JSON.stringify({
+  'prompt': {word:'prompt',currentRound:1,nextReviewTime:Date.now()+3600000,createTime:Date.now(),lastReviewTime:Date.now()},
+  'model': {word:'model',currentRound:3,nextReviewTime:Date.now()-1000,createTime:Date.now(),lastReviewTime:Date.now()},
+  'git push': {word:'git push',currentRound:2,nextReviewTime:Date.now()-1000,createTime:Date.now(),lastReviewTime:Date.now()},
+  'context': {word:'context',currentRound:5,nextReviewTime:Date.now()-1000,createTime:Date.now(),lastReviewTime:Date.now()},
+  'output': {word:'output',currentRound:7,nextReviewTime:0,createTime:Date.now(),lastReviewTime:Date.now()},
+  'training': {word:'training',currentRound:4,nextReviewTime:Date.now()-1000,createTime:Date.now(),lastReviewTime:Date.now()},
+  'commit': {word:'commit',currentRound:6,nextReviewTime:Date.now()-1000,createTime:Date.now(),lastReviewTime:Date.now()}
+}));
+localStorage.setItem('lw_config', JSON.stringify({groupSize:5,notifyEnabled:false,notifyTime:'20:00',voiceType:'us',categories:['ai-prompt','ai-model','git'],bgVideoUrl:''}));
+localStorage.setItem('lw_onboard','1');
+localStorage.setItem('lw_streak', JSON.stringify({count:3,lastDate:new Date().toDateString()}));
+window.location.href = '/';
+</script>
+</body></html>
