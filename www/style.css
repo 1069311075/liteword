@@ -1679,6 +1679,15 @@ html[data-theme="light"] .word-card.resonating .card-glow::before {
 }
 .setting-item:last-child { border-bottom:none; }
 .setting-item.single { justify-content:space-between; }
+/* 子级设置项：缩进 + 略小字号，用排版层次从属于其父开关项 */
+.setting-item.subrow {
+  padding-left:44px;
+  position:relative;
+}
+.setting-item.subrow .setting-label {
+  font-size:0.8125rem;
+  color:var(--text);
+}
 .setting-label { font-size:0.875rem; color:var(--text); font-weight:400; }
 .setting-sub { display:block; font-size:0.625rem; color:var(--setting-sub-color); font-weight:400; margin-top:2px; line-height:1.4; }
 .setting-input {

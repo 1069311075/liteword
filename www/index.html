@@ -317,7 +317,7 @@
               <div class="setting-label">每日复习提醒</div>
               <button class="setting-btn" id="btn-notify" onclick="toggleNotification()" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">开启</button>
             </div>
-            <div class="setting-item" id="notify-time-row" style="display:none;">
+            <div class="setting-item subrow" id="notify-time-row" style="display:none;">
               <div class="setting-label">提醒时间</div>
               <input type="time" class="setting-input" id="set-notifyTime" value="20:00" style="width:100px;" onchange="updateNotifyTime()">
             </div>
@@ -325,7 +325,7 @@
               <div class="setting-label">复习日程<br/><span class="setting-sub">学完后写入系统日历，到点提醒</span></div>
               <button class="setting-btn" id="btn-calendar" onclick="toggleCalendarReview()" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">开启</button>
             </div>
-            <div class="setting-item" id="calendar-defer-row" style="display:none;">
+            <div class="setting-item subrow" id="calendar-defer-row" style="display:none;">
               <div class="setting-label">深夜顺延到<br/><span class="setting-sub">23:00后自动顺延至次日</span></div>
               <input type="time" class="setting-input" id="set-calendarDefer" value="08:00" style="width:100px;" onchange="updateCalendarDefer()">
             </div>
