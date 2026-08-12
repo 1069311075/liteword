@@ -1,0 +1,85 @@
+name: Build iOS (.ipa)
+
+on:
+  # 手动触发：在 GitHub 仓库 Actions 页点 "Run workflow" 即可
+  workflow_dispatch:
+  # 可选：推送到 ios-ci-test 分支时自动触发（临时测试用，正式上架时建议关掉）
+  # push:
+  #   branches: [ ios-ci-test ]
+
+jobs:
+  build-ipa:
+    # 使用 GitHub 自带的 macOS 云编译机（免费额度内）
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装 npm 依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 同步 web 资源到 iOS 工程
+        run: npx cap sync ios
+
+      # 说明：
+      # 1) 无开发者账号/证书时，用 CODE_SIGNING_ALLOWED=NO 编译。
+      #    产物是"模拟器可运行"的 .app，无法直接装到 iPhone 真机
+      #    （iOS 真机强制要求签名）。
+      # 2) 等你注册 Apple Developer 账号并配置好签名证书后，
+      #    评论区打开"真机签名"步骤，即可导出可安装到真机的 .ipa，
+      #    甚至上传 App Store。详见 ios/README-iOS.md。
+      - name: 编译（无签名，用于验证工程可构建）
+        run: |
+          cd ios/App
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath build build
+
+      - name: 上传构建日志（排错用）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: |
+            ios/App/build/Logs/Build/*.xcactivitylog
+          if-no-files-found: ignore
+
+      # ===== 真机签名版本（有证书后启用） =====
+      # 需要你在仓库 Settings -> Secrets 里配置：
+      #   APPLE_CERT_P12        : 分发证书 .p12 的 base64
+      #   APPLE_CERT_PASSWORD   : .p12 的密码
+      #   APPLE_PROVISION_PROFILE: 描述文件 .mobileprovision 的 base64
+      #   APPLE_CERT_NAME       : 证书名称（如 "Apple Distribution: 你的名字 (ID)"）
+      # 然后启用下面这段即可导出可安装真机的 .ipa
+      # - name: 编译并签名（真机版本）
+      #   run: |
+      #     cd ios/App
+      #     # 导入证书
+      #     echo "${{ secrets.APPLE_CERT_P12 }}" | base64 --decode > cert.p12
+      #     echo "${{ secrets.APPLE_PROVISION_PROFILE }}" | base64 --decode > profile.mobileprovision
+      #     security create-keychain -p temp build.keychain
+      #     security default-keychain -s build.keychain
+      #     security unlock-keychain -p temp build.keychain
+      #     security import cert.p12 -k build.keychain -P "${{ secrets.APPLE_CERT_PASSWORD }}" -T /usr/bin/codesign
+      #     security set-key-partition-list -S apple-tool:,apple: -s -k temp build.keychain
+      #     mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+      #     cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+      #     xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+      #       -destination 'generic/platform=iOS' \
+      #       DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+      #       CODE_SIGN_STYLE=Manual \
+      #       -allowProvisioningUpdates \
+      #       -derivedDataPath build build
+      #   env:
+      #     APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+      #     APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+      #     APPLE_PROVISION_PROFILE: ${{ secrets.APPLE_PROVISION_PROFILE }}.
