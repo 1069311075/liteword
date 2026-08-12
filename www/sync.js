@@ -156,6 +156,9 @@
     },
     snapshot: function (server, token) {
       return call('GET', server, '/api/sync/snapshot', null, token);
+    },
+    deleteAccount: function (server, token) {
+      return call('DELETE', server, '/api/auth/account', null, token);
     }
   };
 
@@ -338,7 +341,7 @@
       var codeEl = document.getElementById('set-sync-code');
       // 演示模式：自动填入验证码，方便自媒体录制
       if (data && data.devCode && codeEl) { codeEl.value = data.devCode; }
-      sync.setStatus('验证码已发送' + (data && data.devCode ? '（演示码已自动填入）' : ''), true);
+      sync.setStatus('验证码已发送：' + (data && data.devCode ? data.devCode + '（演示码，已自动填入）' : ''), true);
       // 60 秒倒计时
       var left = 60;
       var timer = setInterval(function () {
@@ -389,6 +392,31 @@
     notifyAuthChange();
   };
 
+  // 注销账号：删除云端账号与同步数据，并清理本地登录态与同步快照
+  sync.deleteAccount = async function () {
+    if (!sync.auth || !sync.auth.token) { sync.setStatus('当前未登录', false); return false; }
+    var server = sync.auth.server || DEFAULT_SERVER;
+    var token = sync.auth.token;
+    sync.setStatus('正在注销账号...');
+    try {
+      await sync.api.deleteAccount(server, token);
+      // 清理本地登录态与同步元数据
+      sync.auth.token = null;
+      sync.auth.username = null;
+      saveAuth();
+      Store.removeItem(STORAGE_KEY_META);
+      sync.meta = defaultMeta();
+      buildDraft();
+      sync.setStatus('账号已注销，本地数据已保留', true);
+      sync.loadSettingsUI();
+      notifyAuthChange();
+      return true;
+    } catch (e) {
+      sync.setStatus('注销失败：' + (e.message || e), false);
+      return false;
+    }
+  };
+
   // ========== 独立登录页专用 ==========
   function loginServer() {
     var el = document.getElementById('set-sync-server');
@@ -410,7 +438,7 @@
       var data = await sync.api.sendSms(loginServer(), phone);
       var codeEl = document.getElementById('login-code');
       if (data && data.devCode && codeEl) codeEl.value = data.devCode;
-      sync.setLoginStatus('验证码已发送' + (data && data.devCode ? '（演示码已自动填入）' : ''), true);
+      sync.setLoginStatus('验证码已发送：' + (data && data.devCode ? data.devCode + '（演示码，已自动填入）' : ''), true);
       var left = 60;
       var timer = setInterval(function () {
         left--;
@@ -498,6 +526,9 @@
     }
     if (loggedIn) sync.setStatus('已登录，可随时同步');
     else sync.setStatus('未登录');
+    // 注销账号入口：仅登录后可见
+    var delRow = document.getElementById('account-delete-row');
+    if (delRow) delRow.style.display = loggedIn ? '' : 'none';
   };
 
   global.sync = sync;

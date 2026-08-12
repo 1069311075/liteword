@@ -108,12 +108,8 @@
         </button>
       </nav>
       <div class="login-hero">
-        <div class="login-badge lg">
-          <span class="badge-chip">Sync</span>
-          <span>云端同步你的学习</span>
-        </div>
         <h1 class="login-title">Sign <em>in</em></h1>
-        <p class="login-sub">手机号一键登录 · 多设备同步词库与进度</p>
+        <p class="login-sub">手机号登录 · 多设备同步</p>
 
         <div class="login-form" id="login-form-wrap">
           <div class="login-field">
@@ -131,11 +127,9 @@
         <div class="login-signedin" id="login-signedin" style="display:none;">
           <div class="login-avatar lg">✓</div>
           <div class="login-phone" id="login-user-phone"></div>
-          <p class="login-fine">学习数据已自动同步到云端</p>
           <button class="login-submit lg muted" onclick="sync.logoutFromLogin()">退出登录</button>
         </div>
 
-        <p class="login-fine" id="login-fine-tip">未注册的手机号验证后将自动开通账号</p>
         <div class="login-status" id="login-status"></div>
       </div>
     </div>
@@ -152,10 +146,9 @@
         <!-- 首页 -->
         <div class="page active" id="page-home">
           <div class="header">
-            <div class="header-title">轻词 <em>LiteWord</em></div>
+            <div class="header-title"><em>LiteWord</em></div>
             <div class="header-actions">
               <button class="header-login lg" id="btn-hdr-login" onclick="openLogin()">登录</button>
-              <span class="header-login-dot" id="btn-hdr-login-dot" style="display:none;"></span>
               <button class="icon-btn lg" onclick="showPage('settings')" title="设置">⚙</button>
             </div>
           </div>
@@ -227,7 +220,7 @@
         <!-- 学习/复习页 -->
         <div class="page" id="page-study">
           <div class="study-header">
-            <button class="study-back lg" onclick="confirmExit()">←</button>
+            <button class="study-back lg" onclick="confirmExit()" aria-label="返回学习">←</button>
             <div class="study-mode" id="study-mode">学习新词</div>
             <div class="w-scene-tag" id="w-scene-tag"></div>
             <div class="study-progress" id="study-progress">1 / 20</div>
@@ -243,6 +236,7 @@
               <div class="mobile-swipe-page page-word">
                 <div class="word-area">
                   <div class="word-card lg" id="word-card" onclick="revealWord()">
+                    <div class="card-glow"></div>
                     <div class="w-en" id="w-en">word</div>
                     <div class="w-phonetic" id="w-phonetic-wrap">
                       <span id="w-phonetic"></span>
@@ -318,7 +312,7 @@
         <!-- 设置页 -->
         <div class="page" id="page-settings">
           <div class="header">
-            <button class="icon-btn lg" onclick="autoSaveSettings(); showPage('home'); refreshHome();">←</button>
+            <button class="icon-btn lg" onclick="autoSaveSettings(); showPage('home'); refreshHome();" aria-label="返回首页">←</button>
             <div class="header-title">设置</div>
             <div style="width:40px"></div>
           </div>
@@ -439,16 +433,50 @@
             </div>
             <div class="setting-item single">
               <div class="setting-label">重置所有数据</div>
-              <button class="setting-btn" onclick="resetData()">清空</button>
+              <button class="setting-btn danger" onclick="resetData()">清空</button>
+            </div>
+            <div class="setting-item single" id="account-delete-row" style="cursor:pointer;">
+              <div class="setting-label">注销账号<br/><span class="setting-sub">删除云端账号与同步数据</span></div>
+              <button class="setting-btn danger" onclick="deleteAccount()">注销</button>
+            </div>
+          </div>
+          <div class="settings-group-title">关于</div>
+          <div class="settings-group lg">
+            <div class="setting-item single" style="cursor:pointer;" onclick="openInfo('feedback')">
+              <div class="setting-label">意见反馈<br/><span class="setting-sub">告诉我们你的想法与建议</span></div>
+              <button class="setting-btn" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">打开</button>
+            </div>
+            <div class="setting-item single" style="cursor:pointer;" onclick="openInfo('privacy')">
+              <div class="setting-label">隐私政策<br/><span class="setting-sub">我们如何收集与保护你的数据</span></div>
+              <button class="setting-btn" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">查看</button>
+            </div>
+            <div class="setting-item single" style="cursor:pointer;" onclick="openInfo('terms')">
+              <div class="setting-label">用户协议<br/><span class="setting-sub">使用轻词即表示同意以下条款</span></div>
+              <button class="setting-btn" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">查看</button>
+            </div>
+            <div class="setting-item single">
+              <div class="setting-label">当前版本<br/><span class="setting-sub">轻词 LiteWord v1.0.1</span></div>
             </div>
           </div>
           <div class="tips" style="margin-top:40px;">
-            轻词 LiteWord v1.0 MVP<br/>
-            数据保存在设备本地
+            轻词 LiteWord v1.0.1<br/>
+            数据保存在设备本地 · 云端同步
           </div>
         </div>
 
       </div>
+    </div>
+  </div>
+
+  <!-- 关于信息弹窗（协议 / 隐私 / 反馈） -->
+  <div class="info-mask" id="info-mask">
+    <div class="info-panel lg-strong">
+      <div class="info-header">
+        <button class="icon-btn lg" onclick="closeInfo()" aria-label="关闭">←</button>
+        <div class="info-title" id="info-title">关于</div>
+        <div style="width:40px"></div>
+      </div>
+      <div class="info-body" id="info-body"></div>
     </div>
   </div>
 
@@ -481,7 +509,7 @@
 <div class="import-mask" id="import-mask">
   <div class="import-panel lg-strong">
     <div class="import-header">
-      <button class="icon-btn lg" onclick="closeImportPanel()">←</button>
+      <button class="icon-btn lg" onclick="closeImportPanel()" aria-label="关闭导入面板">←</button>
       <div class="import-title">导入词库</div>
       <div style="width:40px"></div>
     </div>
@@ -522,7 +550,7 @@
 <div class="lib-mask" id="lib-mask">
   <div class="lib-panel lg-strong">
     <div class="lib-panel-header">
-      <button class="icon-btn lg" onclick="closeLibPanel()">←</button>
+      <button class="icon-btn lg" onclick="closeLibPanel()" aria-label="关闭词库面板">←</button>
       <div class="lib-panel-title">词库管理</div>
       <div class="lib-panel-count" id="lib-panel-count">未选择</div>
     </div>
@@ -557,7 +585,7 @@
 <div class="lib-mask" id="market-mask">
   <div class="lib-panel lg-strong">
     <div class="lib-panel-header">
-      <button class="icon-btn lg" onclick="closeMarketPanel()">←</button>
+      <button class="icon-btn lg" onclick="closeMarketPanel()" aria-label="关闭词库市场">←</button>
       <div class="lib-panel-title">词库市场</div>
       <div class="lib-panel-count" id="market-count"></div>
     </div>
@@ -582,7 +610,7 @@
 <div class="lib-mask" id="wordlist-mask">
   <div class="lib-panel lg-strong">
     <div class="lib-panel-header">
-      <button class="icon-btn lg" onclick="closeWordList()">←</button>
+      <button class="icon-btn lg" onclick="closeWordList()" aria-label="关闭词表">←</button>
       <div class="lib-panel-title" id="wordlist-title">词表</div>
       <div class="lib-panel-count" id="wordlist-count"></div>
     </div>

@@ -98,3 +98,14 @@ def _safe_equals(a: str, b: str) -> bool:
 @router.get("/me", response_model=schemas.UserOut)
 def me(user: User = Depends(get_current_user)):
     return user
+
+
+@router.delete("/account", response_model=schemas.Message)
+def delete_account(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """注销账号：永久删除该用户及其云端同步数据（级联删除 SyncItem）。
+
+    仅删除云端数据，客户端本地数据由调用方自行清理。
+    """
+    db.delete(user)  # cascade="all, delete-orphan" 会一并删除其 sync_items
+    db.commit()
+    return schemas.Message(detail="账号已注销")

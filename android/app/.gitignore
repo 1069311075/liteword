@@ -1,2 +1,5 @@
 /build/*
 !/build/.npmkeep
+
+# Keystore 与签名凭据（严禁入库）
+/keystore/

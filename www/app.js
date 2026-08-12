@@ -1,7 +1,7 @@
 // ========== 7阶间隔配置（毫秒）==========
 const INTERVALS = [
   0,
-  10 * 60 * 1000,       // 10分钟
+  0,       // 第1轮：立即（学完即可复习，便于即时测试）
   2 * 60 * 60 * 1000,   // 2小时
   24 * 60 * 60 * 1000,  // 1天
   2 * 24 * 60 * 60 * 1000, // 2天
@@ -470,16 +470,13 @@ function showPage(name) {
 function updateLoginEntry() {
   const loggedIn = !!(window.sync && sync.auth && sync.auth.token);
   const btn = document.getElementById('btn-hdr-login');
-  const dot = document.getElementById('btn-hdr-login-dot');
   if (!btn) return;
   if (loggedIn) {
     btn.textContent = '已同步';
     btn.classList.add('signed-in');
-    if (dot) dot.style.display = '';
   } else {
     btn.textContent = '登录';
     btn.classList.remove('signed-in');
-    if (dot) dot.style.display = 'none';
   }
 }
 function openLogin() {
@@ -933,11 +930,15 @@ function openWordList(cat) {
   _wordlistCat = cat;
   _wordlistFilter = 'all';
   document.getElementById('wordlist-title').textContent = SCENE_LABELS[cat] || cat;
+  // 关闭底层词库管理面板，避免双层遮罩导致背景过亮（与词库市场观感一致）
+  document.getElementById('lib-mask').classList.remove('show');
   document.getElementById('wordlist-mask').classList.add('show');
   renderWordList();
 }
 function closeWordList() {
   document.getElementById('wordlist-mask').classList.remove('show');
+  // 返回词库管理面板
+  document.getElementById('lib-mask').classList.add('show');
 }
 function setWordFilter(f) {
   _wordlistFilter = f;
@@ -971,6 +972,7 @@ function renderWordList() {
   const listEl = document.getElementById('wordlist-list');
   if (!listEl || !_wordlistCat) return;
   const records = getRecords();
+  const _now = Date.now();
   let items = getWordsForCat(_wordlistCat);
   // 学习状态分类
   items.forEach(it => {
@@ -978,25 +980,34 @@ function renderWordList() {
     it._mastered = round >= 7;
     it._learning = round > 0 && round < 7;
     it._unlearned = round <= 0;
+    it._due = it._learning && it.rec.nextReviewTime <= _now;
   });
   // 过滤
-  if (_wordlistFilter === 'learning') items = items.filter(it => it._learning);
+  if (_wordlistFilter === 'due') items = items.filter(it => it._due);
+  else if (_wordlistFilter === 'learning') items = items.filter(it => it._learning);
   else if (_wordlistFilter === 'done') items = items.filter(it => it._mastered);
-  // 排序：未学 → 学习中 → 已掌握
-  items.sort((a,b) => (a._unlearned?-2:a._learning?-1:0) - (b._unlearned?-2:b._learning?-1:0));
+  // 排序：待复习 → 未学 → 学习中 → 已掌握
+  items.sort((a,b) => (a._due?-3:a._unlearned?-2:a._learning?-1:0) - (b._due?-3:b._unlearned?-2:b._learning?-1:0));
   const countEl = document.getElementById('wordlist-count');
   if (countEl) {
     const total = getWordsForCat(_wordlistCat).length;
     countEl.textContent = items.length + '/' + total;
   }
   if (items.length === 0) {
-    listEl.innerHTML = '<div class="wordlist-empty">没有符合条件的词</div>';
+    const emptyMsg = {
+      all:'这个词库暂时没有词',
+      due:'当前没有待复习的词，请先学习新词',
+      learning:'还没有进入"学习中"的词',
+      done:'还没有已掌握的词'
+    }[_wordlistFilter] || '没有符合条件的词';
+    listEl.innerHTML = '<div class="wordlist-empty">'+emptyMsg+'</div>';
     return;
   }
   let html = '';
   items.forEach(it => {
     let status = '未学', cls = 'un';
     if (it._mastered) { status = it.rec.currentRound+'/7'; cls = 'done'; }
+    else if (it._due) { status = '待复习'; cls = 'due'; }
     else if (it._learning) { status = it.rec.currentRound+'/7'; cls = 'learning'; }
     const meanings = (it.meanings||[]).join('；');
     html += '<div class="wl-item" onclick="speakWordList(\''+it.word.replace(/'/g,"\\'")+'\')">';
@@ -1467,6 +1478,9 @@ function updateCardContent(w, card, prevBtn, skipBtn, nextBtn) {
     ? getReviewMeanings(w.word, getRecords()[w.word])
     : getVisibleMeanings(w.word, w);
   meanEl.innerHTML = visibleMeanings.map(m => '<div class="w-mean-line">'+m+'</div>').join('');
+  // 锁定释义高度：将释义区高度固定为当前词的实际渲染高度（含未揭示时），
+  // 使卡片在 justify-content:center 下语义字节稳定，揭示释义时单词不被顶动。
+  meanEl.style.height = meanEl.scrollHeight + 'px';
   // 顶部进度条
   const pct = ((currentIndex+1)/currentQueue.length)*100;
   const spf = document.getElementById('study-progress-fill');
@@ -1568,6 +1582,16 @@ function stopAllSpeech() {
   if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.TextToSpeech) {
     try { window.Capacitor.Plugins.TextToSpeech.stop(); } catch(e) {}
   }
+  // 停止时立即清理卡片流光共振与播放态：
+  // 发音被切断时 onended 不再触发，finish() 不会执行，若不在此清理，
+  // .resonating 类会残留导致"没声音却一直显示流光特效"。任何停止/切词都统一收敛。
+  const wc = document.getElementById('word-card');
+  if (wc) {
+    wc.classList.remove('resonating');
+    wc.classList.remove('resonating-fade');
+  }
+  const sb = document.getElementById('speak-btn');
+  if (sb) sb.classList.remove('playing');
 }
 
 // 检测 Capacitor TTS 插件是否可用（APP 环境下可用，浏览器预览时不可用）
@@ -1595,15 +1619,22 @@ async function speakWord(isManual) {
   const speakBtn = document.getElementById('speak-btn');
   const wordCard = document.getElementById('word-card');
   if (speakBtn) speakBtn.classList.add('playing');
-  // 卡片共振：仅用户主动点击播放时触发，自动切换单词时不触发
-  if (isManual && wordCard) {
-    wordCard.classList.remove('resonating');
-    void wordCard.offsetWidth; // 重置动画
+  // 卡片共振：仅用户主动点击播放时触发，自动切换单词时不触发。
+  // 仅在"未共振"时添加动画类，已共振则保持静默，避免 remove→reflow→add 强制同步布局导致卡片"闪一下"。
+  if (isManual && wordCard && !wordCard.classList.contains('resonating')) {
     wordCard.classList.add('resonating');
   }
   const finish = () => {
     if (speakBtn) speakBtn.classList.remove('playing');
-    if (wordCard) wordCard.classList.remove('resonating');
+    if (wordCard) {
+      // 丝滑淡出：先加结束态类让流光/光晕平滑渐隐，再延迟移除共振类，
+      // 避免伪元素动画瞬间消失导致"突然跳回初始状态"。
+      wordCard.classList.add('resonating-fade');
+      setTimeout(() => {
+        wordCard.classList.remove('resonating');
+        wordCard.classList.remove('resonating-fade');
+      }, 560);
+    }
     currentAudioEl = null;
   };
 
@@ -1755,7 +1786,13 @@ function recordCurrentWord(remembered) {
 
   let nextRound;
   if (remembered) {
-    nextRound = existingRound + 1;
+    // 学习新词时，若该词已有记录（当前词是旧词的新场景义），从头重新学完整 SRS；
+    // 复习时则正常推进轮次。这样新意思能做到"学完立即复习、马上用"。
+    if (currentMode === 'learn' && existingRound > 0) {
+      nextRound = 1;
+    } else {
+      nextRound = existingRound + 1;
+    }
   } else {
     // 忘记了：回到第1轮重新开始
     nextRound = FORGOT_RESET_ROUND;
@@ -2084,6 +2121,20 @@ function setupVideoAppState() {
       });
     }
   } catch(e) {}
+}
+
+// 弹窗/遮罩打开时压暗视频背景（backdrop-filter 对视频层不生效，需直接调低视频亮度）
+function initMaskDimVideo() {
+  const masks = document.querySelectorAll('.lib-mask, .import-mask, .modal-mask, .info-mask');
+  const update = () => {
+    let anyOpen = false;
+    masks.forEach(m => {
+      if (m.classList.contains('show') || m.style.display === 'flex' || m.style.display === 'block') anyOpen = true;
+    });
+    document.body.classList.toggle('mask-open', anyOpen);
+  };
+  masks.forEach(m => new MutationObserver(update).observe(m, { attributes: true, attributeFilter: ['class', 'style'] }));
+  update();
 }
 
 function handleBgVideoUpload(input) {
@@ -2496,6 +2547,16 @@ async function resetData() {
   toast('所有数据已重置'); refreshHome();
 }
 
+// 注销账号：二次确认后删除云端账号，保留本地数据
+async function deleteAccount() {
+  const loggedIn = !!(window.sync && sync.auth && sync.auth.token);
+  if (!loggedIn) { toast('当前未登录'); return; }
+  const ok = await showConfirm('注销账号', '确定要注销当前账号吗？将永久删除云端账号及其同步数据。本地学习数据会保留在你的设备上。此操作不可恢复。');
+  if (!ok) return;
+  const done = await sync.deleteAccount();
+  if (done) { toast('账号已注销'); refreshHome(); }
+}
+
 // ========== 导入词库 ==========
 function openImportPanel() {
   document.getElementById('import-mask').classList.add('show');
@@ -2507,6 +2568,52 @@ function openImportPanel() {
 }
 function closeImportPanel() {
   document.getElementById('import-mask').classList.remove('show');
+}
+
+// ========== 关于：协议 / 隐私 / 反馈 ==========
+const INFO_CONTENT = {
+  feedback: {
+    title: '意见反馈',
+    body: [
+      ['告诉我们你的想法', '轻词还很年轻，你的每一条建议都在帮助它变得更好。无论是单词库、发音、界面，还是某个让你觉得不顺手的地方，都欢迎告诉我们。'],
+      ['如何反馈', '本期为演示版本，暂未开放线上反馈通道。你可以通过以下方式联系我们：\n· 在应用商店评论区留言\n· 通过自媒体账号私信我们\n· 后续版本将接入站内反馈与社区'],
+      ['反馈内容建议', '描述你遇到的问题或期望的功能，如果可以，附上你的设备型号与系统版本，能帮我们更快定位问题。']
+    ]
+  },
+  privacy: {
+    title: '隐私政策',
+    body: [
+      ['数据归属', '你的学习记录、词库与连续天数默认保存在设备本地，不会上传到任何服务器。'],
+      ['账号与云同步', '当你登录云端同步时，仅会同步你的学习数据用于多设备备份。我们不会收集你的通讯录、相册、位置等无关信息。'],
+      ['背景视频', '若你选择从相册选取背景视频，该文件仅保存在本机，不会被上传或共享。'],
+      ['数据安全', '我们采用加密连接传输你的登录凭据与学习数据，并尽力保障数据不被未授权访问。'],
+      ['你的权利', '你可以随时在设置中清空全部数据，或通过账号注销删除云端备份。']
+    ]
+  },
+  terms: {
+    title: '用户协议',
+    body: [
+      ['服务说明', '轻词 LiteWord 是一款本地优先的英语单词学习应用，提供分类学习、记忆复习与云端同步（可选）功能。'],
+      ['数据与隐私', '未登录时，全部数据仅保存在你的设备。登录后，学习数据将用于同步备份，具体见《隐私政策》。'],
+      ['合理使用', '请勿利用本应用从事任何违反法律法规或侵犯他人权益的行为。'],
+      ['服务变更', '我们保留优化、调整或终止部分功能的权利，并会在此处及时更新本协议。'],
+      ['联系方式', '如对本协议有任何疑问，可通过设置页的意见反馈入口与我们联系。']
+    ]
+  }
+};
+
+function openInfo(key) {
+  const c = INFO_CONTENT[key];
+  if (!c) return;
+  document.getElementById('info-title').textContent = c.title;
+  const body = document.getElementById('info-body');
+  body.innerHTML = c.body.map(function (b) {
+    return '<div class="info-sec"><div class="info-sec-title">' + b[0] + '</div><div class="info-sec-text">' + b[1].replace(/\n/g, '<br>') + '</div></div>';
+  }).join('');
+  document.getElementById('info-mask').classList.add('show');
+}
+function closeInfo() {
+  document.getElementById('info-mask').classList.remove('show');
 }
 
 // ========== 词库市场（占位模块，待后端接入） ==========
@@ -2673,6 +2780,18 @@ function confirmImport() {
     return;
   }
 
+  // 补全缺失音标：从内置词库复用同词音标（覆盖 AI 漏填的常见词），
+  // 本地完成、无需联网，使导入词也尽量带音标。
+  const builtinPhone = {};
+  BUILTIN_WORD_BANK.forEach(w => { if (w.phonetic) builtinPhone[w.word] = w.phonetic; });
+  let filledPhone = 0;
+  words.forEach(w => {
+    if (!w.phonetic) {
+      const p = builtinPhone[(w.word || '').trim()];
+      if (p) { w.phonetic = p; filledPhone++; }
+    }
+  });
+
   // 导入：纯追加，不做任何对全局词库的去重/合并。
   // 去重与合并推迟到"选中词库开始学习"时，由 mergeCustomWords 按选中场景统一处理。
   // 这样即使不学已有的那些词库、只学导入的新词库，也能完整学到所有导入的词。
@@ -2718,6 +2837,7 @@ function confirmImport() {
 
   const parts = [];
   parts.push(words.length + ' 个新增');
+  if (filledPhone > 0) parts.push('补全 ' + filledPhone + ' 个音标');
   statsEl.innerHTML = '✓ ' + parts.join('，') + '';
   statsEl.className = 'import-stats success';
   textarea.value = '';
@@ -3083,6 +3203,7 @@ async function init() {
   updateBgVideoUI();
   // 后台暂停视频（省电）
   setupVideoAppState();
+  initMaskDimVideo();
   // 注册 Android 物理返回键
   setupBackButton();
   // 点击学习模式文字时，短暂显示场景标签

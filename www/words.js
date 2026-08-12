@@ -1126,7 +1126,7 @@ const IMPORT_PROMPT_TEMPLATE = `请帮我生成一个英语单词学习词库。
 
 ## 字段规则
 1. **word**: 小写。单个单词直接写（如 "layer"）；词组用空格分隔（如 "sign in"、"add to cart"、"drag and drop"）；复合词用短横线（如 "drop-down"、"check-in"、"carry-on"）；缩写直接写（如 "rgb"、"api"、"pdf"）
-2. **phonetic**: 美式音标，用 / / 包裹。词组可不填音标（留空字符串 ""），单词必须填写
+2. **phonetic**: 美式音标，用 / / 包裹。**每一个单词都必须填写准确音标**，不允许留空或省略！例如 "opacity": "/oʊˈpæsəti/"、"espresso": "/eˈspresoʊ/"、"layer": "/ˈleɪər/"。若不确定某单词音标，请先查证再填入。仅词组可留空字符串 ""（如 "sign in": ""）
 3. **meanings**: 每个释义以 "词性. " 开头，如 "n. 图层"、"v. 登录"、"phr. 加入购物车"。词组的词性用 "phr." 标记
 4. **sentence**: 必须是包含该词/词组的完整英文例句，必须模拟真实界面或操作语境（如按钮文字、提示文案、菜单路径），不要编造与场景无关的日常例句
 5. **category**: 英文短横线格式，如 "photoshop"、"figma"、"medical-sys"、"amazon"

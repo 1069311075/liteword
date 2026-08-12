@@ -72,6 +72,20 @@
   --speak-playing-bg: rgba(255,255,255,0.1);
   /* 共振边框流光 */
   --grad-resonating: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.4) 50%, transparent 70%);
+  /* ===== 液态光晕（Liquid Glass）增强 ===== */
+  /* 中心放射光晕：光从卡片中心向四周漫射，模拟液态玻璃的折射与内透 */
+  --glow-center: radial-gradient(120% 130% at 50% 50%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 38%, rgba(255,255,255,0.015) 62%, rgba(255,255,255,0) 78%);
+  --glow-center-soft: radial-gradient(130% 140% at 50% 50%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.025) 45%, rgba(255,255,255,0) 70%);
+  /* 液态边缘流光：单条光带扫过，首尾淡入淡出实现无缝循环 */
+  --grad-resonating-flow: linear-gradient(100deg,
+    transparent 0%,
+    rgba(255,255,255,0.05) 30%,
+    rgba(255,255,255,0.62) 44%,
+    rgba(180,220,255,0.34) 50%,
+    rgba(255,255,255,0.62) 56%,
+    rgba(255,255,255,0.05) 70%,
+    transparent 100%);
+  --grad-flow-hue: rgba(160,200,255,0.12);
   /* 记忆点 */
   --mdot-bg: rgba(255,255,255,0.08);
   --mdot-active-bg: rgba(255,255,255,0.7);
@@ -346,13 +360,19 @@ body.video-fallback .bg-fallback-static {
 .bg-video.failed { opacity:0 !important; }
 .bg-overlay {
   position:fixed; top:0; left:0; width:100%; height:100%;
-  background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.35) 100%);
+  background: rgba(0,0,0,0.22);
   z-index:2; pointer-events:none;
 }
+/* 弹窗/遮罩打开时压暗视频背景：
+   backdrop-filter 对视频层不生效，半透明黑遮不住亮视频会透出，
+   故在弹窗打开时直接降低视频亮度，背景更干净、遮罩保持温和、内容清晰。 */
+body.mask-open .bg-video { opacity:0.18 !important; }
 
 /* ===== 液态玻璃基础类 ===== */
 .lg {
-  background: var(--grad-panel);
+  background:
+    var(--glow-center-soft),
+    var(--grad-panel);
   background-blend-mode: luminosity;
   backdrop-filter: var(--lg-blur);
   -webkit-backdrop-filter: var(--lg-blur);
@@ -369,7 +389,9 @@ body.video-fallback .bg-fallback-static {
   pointer-events:none;
 }
 .lg-strong {
-  background: var(--grad-card);
+  background:
+    var(--glow-center),
+    var(--grad-card);
   background-blend-mode: luminosity;
   backdrop-filter: var(--lg-blur-strong);
   -webkit-backdrop-filter: var(--lg-blur-strong);
@@ -439,7 +461,10 @@ body.video-fallback .bg-fallback-static {
   border-radius:1.5rem;
   display:flex; flex-direction:column;
   overflow:hidden; min-height:0;
-  background: var(--right-glass-bg);
+  background:
+    var(--glow-center-soft),
+    var(--right-glass-bg);
+  background-blend-mode: luminosity;
   backdrop-filter: blur(45px) saturate(130%);
   -webkit-backdrop-filter: blur(45px) saturate(130%);
   box-shadow: var(--right-glass-shadow);
@@ -466,6 +491,9 @@ body.video-fallback .bg-fallback-static {
   display:flex; flex-direction:column;
   overflow:hidden;
   min-height:0;
+  /* 去掉 lg-strong 背景中的 --glow-center 超大椭圆光晕层，
+     避免在弹窗/词表打开时透出一圈圈椭圆光带（浅色尤其明显） */
+  background: var(--grad-card);
 }
 
 /* ===== 页面容器 ===== */
@@ -725,8 +753,8 @@ body.video-fallback .bg-fallback-static {
   font-size:1rem;
 }
 
-/* ===== 液态玻璃质感增强（全局统一）：中心对称柔光 + 液态厚度 ===== */
-/* 顶部中心放射柔光 + 底部中心微光：光沿卡片中心轴上下对称辐射，模拟玻璃折射 */
+/* ===== 液态玻璃质感增强（全局统一）：中心放射光晕 + 液态厚度 ===== */
+/* 中心放射光晕：光从卡片中心向四周漫射，上下对称，模拟液态玻璃折射与内透 */
 .main-btn.lg::after,
 .stat-card.lg::after,
 .progress-card.lg::after,
@@ -741,21 +769,31 @@ body.video-fallback .bg-fallback-static {
 .lib-panel-import.lg::after,
 .lib-panel-market.lg::after,
 .market-item::after,
-.wl-item::after,
 .import-list-item::after {
   content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
   background:
-    radial-gradient(150% 130% at 50% -12%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 42%, rgba(255,255,255,0) 68%),
+    var(--glow-center),
     radial-gradient(150% 120% at 50% 118%, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 55%);
 }
-/* 列表行柔光更克制，避免滚动列表里过度发亮 */
+/* wl-item 单独定义：content 和定位保留，但去掉径向渐变背景
+   几十个词卡的径向渐变叠加会产生明显的同心干涉条纹 */
+.wl-item::after {
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+}
+/* 列表行柔光更克制，避免滚动列表里过度发亮（中心光晕降为柔和档）
+   注：wl-item 已从列表中移除，几十个词卡的径向渐变叠加会产生可见的同心干涉条纹 */
 .lib-item.lg::after,
 .lib-panel-import.lg::after,
 .lib-panel-market.lg::after,
 .market-item::after,
-.wl-item::after,
 .import-list-item::after {
-  background: radial-gradient(150% 130% at 50% -12%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 60%);
+  background: var(--glow-center-soft);
+}
+/* 单词卡片默认光晕：默认即采用与共振播放时相同的中心光晕色调，
+   保证发音动效播放前后卡片颜色一致、不跳变（磨砂/深色主题） */
+.word-card.lg::after {
+  background:
+    radial-gradient(95% 105% at 50% 50%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0) 72%);
 }
 /* 液态厚度（展示型大卡片）：多层内高光 + 柔和浮起阴影 */
 .main-btn.lg,
@@ -794,6 +832,7 @@ body.video-fallback .bg-fallback-static {
   backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
 }
 .lib-mask.show { display:flex; }
+/* 词表弹窗：与词库市场保持一致遮罩，不过度压暗导致内容不可见 */
 .lib-panel {
   width:100%; max-width:480px; height:100%;
   margin:0 auto; border-radius:0;
@@ -806,6 +845,12 @@ body.video-fallback .bg-fallback-static {
 /* 词库面板边框流光：浅色以 --lib-card-border 覆盖（与 .lg-strong::before 同结构） */
 .lib-panel.lg-strong::before {
   background: var(--lib-card-border);
+}
+/* 去掉 lg-strong 的中心径向光晕，避免与面板背景叠加产生一圈圈椭圆光带
+   （浅色主题下尤其明显，与 left-glass 处理方式一致） */
+.lib-panel.lg-strong {
+  background: var(--lib-panel-bg);
+  background-blend-mode: normal;
 }
 @keyframes libSlideIn {
   from { opacity:0; transform:translateY(20px); }
@@ -1276,6 +1321,7 @@ body.video-fallback .bg-fallback-static {
   position:relative;
   transform:translateY(-12px);
   min-width:0; overflow-x:hidden;
+  box-sizing:border-box;
 }
 .word-card:active { transform:translateY(-12px) scale(0.98); }
 /* 切换动画：单阶段淡入 */
@@ -1289,8 +1335,8 @@ body.video-fallback .bg-fallback-static {
 
 /* 场景标签（头部，默认隐藏，点击模式文字短暂显示） */
 .w-scene-tag {
-  font-size:0.625rem; font-weight:400; letter-spacing:0.04em;
-  color:var(--scene-tag-color); padding:2px 8px;
+  font-size:0.55rem; font-weight:400; letter-spacing:0.04em;
+  color:var(--scene-tag-color); padding:1px 7px;
   border-radius:999px; background:var(--scene-tag-bg);
   opacity:0; transition:opacity 0.4s ease; white-space:nowrap;
   pointer-events:none;
@@ -1376,17 +1422,15 @@ body.video-fallback .bg-fallback-static {
 .speak-btn:active { transform:scale(0.9); }
 .speak-btn.playing { color:var(--speak-playing-color); border-color:var(--speak-playing-border); background:var(--speak-playing-bg); }
 .word-card .w-spacer {
-  height:16px;
+  height:6px;
   flex-shrink:0;
-}
-.word-card.hidden-answer .w-spacer {
-  height:24px;
 }
 .word-card .w-mean {
   font-size:1.25rem; color:var(--text-strong); font-weight:500;
   opacity:0; visibility:hidden;
-  transition:opacity 0.4s ease; min-height:1.7rem;
+  transition:opacity 0.4s ease;
   margin-top:0;
+  max-width:100%;
 }
 .word-card:not(.hidden-answer) .w-mean {
   opacity:1; visibility:visible;
@@ -1397,72 +1441,81 @@ body.video-fallback .bg-fallback-static {
 .w-mean-line + .w-mean-line {
   margin-top:4px;
 }
-/* 综合复习：场景软标签（简洁克制，略提升可读性以区分场景） */
+/* 综合复习：场景软标签（小而克制，避免挤压释义、偏离单词正下方） */
 .rm-scene {
   font-style:normal;
-  font-size:0.7em;
+  font-size:0.58em;
   font-weight:400;
   opacity:var(--rm-scene-opacity);
-  margin-left:3px;
+  margin-left:2px;
   color:var(--rm-scene-color);
 }
 .w-hint {
   display:none;
 }
 
-/* ===== 卡片共振：点击播放时背景柔光 + 边框流光 + 发光脉动 ===== */
-.word-card.resonating {
-  animation: resonanceBreath 2.4s ease-in-out infinite;
-}
-@keyframes resonanceBreath {
-  0%, 100% {
-    box-shadow:
-      0 8px 32px rgba(0,0,0,0.25),
-      0 0 20px rgba(255,255,255,0.03),
-      0 0 40px rgba(255,255,255,0.02),
-      inset 0 1px 0 rgba(255,255,255,0.08);
-  }
-  50% {
-    box-shadow:
-      0 8px 32px rgba(0,0,0,0.25),
-      0 0 40px rgba(255,255,255,0.12),
-      0 0 80px rgba(255,255,255,0.08),
-      0 0 120px rgba(255,255,255,0.04),
-      inset 0 1px 0 rgba(255,255,255,0.15);
-  }
-}
-/* 浅色模式下的共振发光 */
-@keyframes resonanceBreathLight {
-  0%, 100% {
-    box-shadow:
-      0 8px 32px rgba(0,0,0,0.12),
-      0 0 20px rgba(0,0,0,0.02),
-      0 0 40px rgba(0,0,0,0.01),
-      inset 0 1px 0 rgba(255,255,255,0.8);
-  }
-  50% {
-    box-shadow:
-      0 8px 32px rgba(0,0,0,0.12),
-      0 0 40px rgba(0,0,0,0.08),
-      0 0 80px rgba(0,0,0,0.06),
-      0 0 120px rgba(0,0,0,0.03),
-      inset 0 1px 0 rgba(255,255,255,0.85);
-  }
-}
-/* 边框流光：渐变沿边框连续流动 */
-.word-card.resonating::after {
-  content:"";
+/* ===== 卡片共振：点击播放时背景柔光 + 边框流光 + 中心放射脉冲 + 发光脉动 ===== */
+/* 共振效果承载在独立的 .card-glow 层上（绝对定位于卡片内 inset:0），动画始终在
+   .card-glow::before / ::after 上持续运转。这样淡出时只需对 .card-glow 整体做
+   opacity 过渡，流光与脉动会在渐隐过程中继续流动，避免"流光突然跳回初始相位"的顿挫感。 */
+.word-card .card-glow {
   position:absolute; inset:0; border-radius:inherit; pointer-events:none;
-  background: var(--grad-resonating);
-  background-size: 250% 100%;
+  opacity:0; z-index:1;
+  transition:opacity 0.55s ease;
+}
+.word-card.resonating .card-glow {
+  opacity:1; transition:opacity 0.35s ease;
+}
+.word-card.resonating-fade .card-glow {
+  opacity:0; transition:opacity 0.55s ease;
+}
+/* 中心放射光晕（柔光脉冲） */
+.card-glow::before {
+  content:"";
+  position:absolute; inset:0; border-radius:inherit;
+  background:
+    radial-gradient(95% 105% at 50% 50%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0) 72%);
+}
+/* 动画仅在 .resonating 时启动，确保每次点击都从 0% 相位开始，起始点一致 */
+.word-card.resonating .card-glow::before {
+  animation: centerGlowPulse 2.4s ease-in-out infinite;
+}
+@keyframes centerGlowPulse {
+  0%, 100% { opacity:0.35; transform:scale(0.985); box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 10px 28px rgba(0,0,0,0.12), 0 0 12px rgba(255,255,255,0.02); }
+  50% { opacity:1; transform:scale(1.01); box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 0 40px rgba(255,255,255,0.12), 0 0 80px rgba(255,255,255,0.08), 0 0 120px rgba(255,255,255,0.04); }
+}
+/* 浅色模式下的共振发光（暖色光晕呼吸） */
+@keyframes centerGlowPulseLight {
+  0%, 100% { opacity:0.35; transform:scale(0.985); box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 10px 28px rgba(0,0,0,0.10), 0 0 10px rgba(0,0,0,0.01); }
+  50% { opacity:1; transform:scale(1.01); box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 0 40px rgba(0,0,0,0.08), 0 0 80px rgba(0,0,0,0.06), 0 0 120px rgba(0,0,0,0.03); }
+}
+/* 浅色共振中心放射：暖色书香光晕脉冲 */
+html[data-theme="light"] .card-glow::before {
+  background:
+    radial-gradient(95% 105% at 50% 50%, rgba(252,240,214,0.42) 0%, rgba(250,235,200,0.12) 45%, rgba(250,235,200,0) 72%);
+}
+html[data-theme="light"] .word-card.resonating .card-glow::before {
+  animation: centerGlowPulseLight 2.4s ease-in-out infinite;
+}
+/* 边框流光：渐变沿边框连续流动（升级为高光条 + 光晕色带的液态流光） */
+.card-glow::after {
+  content:"";
+  position:absolute; inset:0; border-radius:inherit;
+  background: var(--grad-resonating-flow);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
   padding:1.5px;
+}
+.word-card.resonating .card-glow::after {
   animation: borderFlow 2.4s linear infinite;
 }
 @keyframes borderFlow {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% { background-position: 130% 0; opacity: 0; }
+  18% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { background-position: -30% 0; opacity: 0; }
 }
 
 /* 记忆进度条（放在学习页头部右侧，低调显示） */
@@ -1636,12 +1689,16 @@ body.video-fallback .bg-fallback-static {
 }
 .setting-input:focus { border-color:var(--setting-input-focus-border); }
 .setting-btn {
-  background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.3);
-  color:#f87171; border-radius:0.5rem; padding:8px 16px;
+  background:var(--tg-off-bg); border:1px solid var(--tg-off-border);
+  color:var(--tg-off-color); border-radius:0.5rem; padding:8px 16px;
   font-size:0.8125rem; cursor:pointer; font-family:inherit;
   transition:all 0.2s;
 }
 .setting-btn:active { transform:scale(0.95); }
+.setting-btn.danger {
+  background:rgba(239,68,68,0.2); border-color:rgba(239,68,68,0.3);
+  color:#f87171;
+}
 /* 云同步 */
 #set-sync-server { width:150px; text-align:left; flex-shrink:1; }
 #set-sync-phone { width:150px; text-align:left; flex-shrink:1; }
@@ -1862,6 +1919,7 @@ body.logined .app-shell { display:none; }
 .login-content {
   position:relative; z-index:1; width:100%; height:100%;
   display:flex; flex-direction:column; padding:28px; box-sizing:border-box;
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
 }
 .login-nav {
   display:flex; align-items:center; justify-content:space-between;
@@ -1919,13 +1977,13 @@ body.logined .app-shell { display:none; }
 .login-field.row .login-input { flex:1; }
 .login-input {
   width:100%; box-sizing:border-box;
-  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14);
+  background:var(--setting-input-bg); border:1px solid var(--setting-input-border);
   border-radius:0.8rem; padding:14px 16px; font-size:1rem;
-  color:var(--text-strong); outline:none; font-family:inherit;
+  color:var(--setting-input-color); outline:none; font-family:inherit;
   transition:border-color 0.2s, box-shadow 0.2s;
 }
 .login-input::placeholder { color:var(--text-dim); }
-.login-input:focus { border-color:rgba(255,255,255,0.45); box-shadow:0 0 0 3px rgba(255,255,255,0.06); }
+.login-input:focus { border-color:var(--setting-input-focus-border); box-shadow:0 0 0 3px var(--setting-input-border); }
 .login-code-btn {
   padding:0 18px; border-radius:0.8rem; background:#fff; color:#000; font-weight:600;
   font-size:0.8125rem; cursor:pointer; border:none; white-space:nowrap;
@@ -1973,14 +2031,19 @@ body.logined .app-shell { display:none; }
 /* 首页 header 登录入口 */
 .header-actions { display:flex; align-items:center; gap:8px; }
 .header-login {
-  padding:6px 14px; border-radius:var(--radius-pill);
-  background:var(--lg-bg); border:1px solid rgba(255,255,255,0.14);
+  height:40px; padding:0 16px; border-radius:0.75rem;
+  background:var(--lg-bg); border:1px solid var(--lg-border-mid);
   color:var(--text-strong); font-size:0.8125rem; font-weight:500;
-  cursor:pointer; font-family:inherit; transition:transform 0.15s, background 0.2s;
+  cursor:pointer; font-family:inherit; display:flex; align-items:center;
+  transition:transform 0.15s, background 0.2s;
   backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
 }
+.header-actions .icon-btn {
+  width:40px; height:40px; border-radius:0.75rem;
+  background:var(--lg-bg); border:1px solid var(--lg-border-mid);
+}
 .header-login:active { transform:scale(0.95); }
-.header-login.signed-in { color:#10b981; border-color:rgba(16,185,129,0.4); }
+.header-login.signed-in { color:#10b981; }
 .header-login-dot {
   width:8px; height:8px; border-radius:50%; background:#10b981;
   box-shadow:0 0 0 3px rgba(16,185,129,0.2);
@@ -2067,6 +2130,51 @@ body.logined .app-shell { display:none; }
   padding:20px;
 }
 .import-body::-webkit-scrollbar { width:0; }
+
+/* ===== 关于信息弹窗（协议 / 隐私 / 反馈） ===== */
+.info-mask {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  z-index:910; display:none;
+  background:rgba(0,0,0,0.4);
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+}
+.info-mask.show { display:flex; }
+.info-panel {
+  width:100%; max-width:480px; height:100%;
+  margin:0 auto; border-radius:0;
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  background:var(--import-panel-bg);
+  animation:importSlideIn 0.3s cubic-bezier(0.34,1.2,0.64,1);
+}
+.info-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 20px; flex-shrink:0;
+  border-bottom:1px solid var(--import-header-border);
+}
+.info-title { font-size:1.125rem; font-weight:600; }
+.info-body {
+  flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding:24px 20px 32px;
+}
+.info-body::-webkit-scrollbar { width:0; }
+.info-sec { margin-bottom:22px; }
+.info-sec:last-child { margin-bottom:0; }
+.info-sec-title {
+  font-size:0.95rem; font-weight:600;
+  color:var(--text-strong);
+  margin-bottom:6px;
+}
+.info-sec-text {
+  font-size:0.875rem; line-height:1.7;
+  color:var(--text-dim);
+  white-space:normal;
+}
+
+/* 浅色主题下关于面板底部细线（与导入面板一致） */
+html[data-theme="light"] .info-panel {
+  border-bottom:1px solid rgba(55,47,38,0.05);
+}
 .import-step {
   display:flex; align-items:center; gap:12px; margin-bottom:12px;
 }
@@ -2474,10 +2582,10 @@ body.logined .app-shell { display:none; }
   .onboard-content { max-width:100%; padding:20px 24px; }
   .onboard-glass { width:100%; border-radius:0; }
   .header { padding:20px 24px 16px; }
-  #page-home .header { padding:20px 24px 16px 44px; }
+  #page-home .header { padding:20px 24px 16px; }
   .stats-row { padding:0 24px; }
   .action-area { padding:0 24px; }
-  .section-title { padding:0 24px 0 44px; }
+  .section-title { padding:0 24px; }
   .lib-big-area { padding:0 24px; }
   .heatmap-area { padding:0 24px; }
   .tips { padding:0 24px; }
@@ -2565,9 +2673,11 @@ html[data-theme="dark"] {
   --text-faint: rgba(255,255,255,0.35);
   --accent: rgba(255,255,255,0.15);
 }
-/* 浅色与深色模式无视频背景，隐藏暗化遮罩 */
+/* 浅色与深色模式无视频背景，隐藏暗化遮罩与视频层 */
 html[data-theme="light"] .bg-overlay,
 html[data-theme="dark"] .bg-overlay { display:none; }
+html[data-theme="light"] .bg-video,
+html[data-theme="dark"] .bg-video { display:none !important; }
 
 /* ========== 主题模式：浅色模式（data-theme="light"）========== */
 html[data-theme="light"] {
@@ -2581,12 +2691,12 @@ html[data-theme="light"] {
   --lg-border-strong: rgba(55,47,38,0.12);
   --text: rgba(55,47,38,0.92);
   --text-mid: rgba(55,47,38,0.68);
-  --text-dim: rgba(55,47,38,0.48);
-  --text-faint: rgba(55,47,38,0.32);
+  --text-dim: rgba(55,47,38,0.55);
+  --text-faint: rgba(55,47,38,0.45);
   --accent: rgba(55,47,38,0.08);
   /* ===== 浅色主题语义 token 覆盖：与 :root 同名 token 一一对应 ===== */
   --body-bg: linear-gradient(150deg, #f3f6fb 0%, #ece4d4 30%, #e5dccc 55%, #f0ebe0 100%);
-  --grad-fallback: radial-gradient(120% 120% at 15% 0%, #fbf7ef 0%, #f0ebe0 40%, #e5dccc 100%);
+  --grad-fallback: linear-gradient(150deg, #f3f6fb 0%, #ece4d4 30%, #e5dccc 55%, #f0ebe0 100%);
   --grad-panel: linear-gradient(160deg, rgba(253,250,242,0.92) 0%, rgba(253,250,242,0.62) 35%, rgba(253,250,242,0.38) 70%, rgba(253,250,242,0.55) 100%);
   --grad-card: linear-gradient(160deg, rgba(253,250,242,0.9) 0%, rgba(253,250,242,0.58) 40%, rgba(253,250,242,0.32) 100%);
   --grad-panel-border: linear-gradient(180deg, rgba(253,250,242,0.95) 0%, rgba(253,250,242,0.55) 18%, rgba(253,250,242,0.15) 40%, transparent 55%, transparent 70%, rgba(253,250,242,0.35) 88%, rgba(253,250,242,0.7) 100%);
@@ -2632,6 +2742,18 @@ html[data-theme="light"] {
   --speak-playing-border: rgba(55,47,38,0.25);
   --speak-playing-bg: rgba(55,47,38,0.08);
   --grad-resonating: linear-gradient(120deg, transparent 30%, rgba(55,47,38,0.35) 50%, transparent 70%);
+  /* ===== 液态光晕浅色覆盖：暖色书香光晕 ===== */
+  --glow-center: radial-gradient(120% 130% at 50% 50%, rgba(250,240,220,0.5) 0%, rgba(250,240,220,0.18) 38%, rgba(250,240,220,0.05) 62%, rgba(250,240,220,0) 78%);
+  --glow-center-soft: radial-gradient(130% 140% at 50% 50%, rgba(250,240,220,0.3) 0%, rgba(250,240,220,0.1) 45%, rgba(250,240,220,0) 70%);
+  --grad-resonating-flow: linear-gradient(100deg,
+    transparent 0%,
+    rgba(250,244,232,0.1) 30%,
+    rgba(255,250,240,0.95) 44%,
+    rgba(216,182,120,0.4) 50%,
+    rgba(255,250,240,0.95) 56%,
+    rgba(250,244,232,0.1) 70%,
+    transparent 100%);
+  --grad-flow-hue: rgba(202,168,110,0.16);
   --mdot-bg: rgba(55,47,38,0.08);
   --mdot-active-bg: rgba(55,47,38,0.6);
   --mdot-mastered-bg: rgba(55,47,38,0.25);
@@ -2798,15 +2920,13 @@ html[data-theme="light"] {
 /* 说明：其余所有浅色逐组件颜色覆盖已折叠进 :root / html[data-theme="light"] 的语义 token，
    由 var(--token) 在基础定义中统一引用；以下仅保留基础主题中不存在、浅色专属的装饰结构。 */
 
-/* 1. 卡片共振发光：浅色模式改用更柔和的呼吸动画（发光底色已由 --grad-resonating token 接管，仅动画名不同） */
-html[data-theme="light"] .word-card.resonating {
-  animation: resonanceBreathLight 2.4s ease-in-out infinite;
-}
+/* 1. 卡片共振发光：浅色模式已由主定义区 .card-glow::before
+   的 centerGlowPulseLight 动画 + 暖色光晕 token 接管，不再覆盖主元素 animation，
+   避免移除 resonating 类时重播卡片的 cardFadeIn 入场动画（卡片"重新加载"）。 */
 
 /* 2. 液态玻璃顶部高光弧线（浅色专属装饰：暖白 rgba(253,250,242,...) 折射反光，无法并入统一颜色 token，故保留） */
 html[data-theme="light"] .stat-card.lg::after,
 html[data-theme="light"] .main-btn.lg::after,
-html[data-theme="light"] .word-card.lg::after,
 html[data-theme="light"] .progress-card.lg::after,
 html[data-theme="light"] .lib-manage-btn.lg::after,
 html[data-theme="light"] .lib-big-btn.lg::after,
@@ -2822,6 +2942,15 @@ html[data-theme="light"] .logo-dot.lg::after {
   background: radial-gradient(120% 60% at 50% 0%, rgba(253,250,242,0.35) 0%, transparent 55%);
 }
 
+/* 2.1 浅色单词卡片：默认即采用与共振播放时相同的暖色中心光晕，
+   保证发音动效播放前后卡片颜色一致、不跳变（替代提升亮度的顶部高光弧线） */
+html[data-theme="light"] .word-card.lg::after {
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  pointer-events:none;
+  background:
+    radial-gradient(95% 105% at 50% 50%, rgba(252,240,214,0.30) 0%, rgba(250,235,200,0.10) 45%, rgba(250,235,200,0) 72%);
+}
+
 /* 3. 柔光中心（浅色专属装饰：暖色柔光取代冷白光晕，无法并入统一颜色 token，故保留） */
 html[data-theme="light"] .done-stats::after,
 html[data-theme="light"] .settings-group.lg::after,
@@ -2830,9 +2959,13 @@ html[data-theme="light"] .lib-item.lg::after,
 html[data-theme="light"] .lib-panel-import.lg::after,
 html[data-theme="light"] .lib-panel-market.lg::after,
 html[data-theme="light"] .market-item::after,
-html[data-theme="light"] .wl-item::after,
 html[data-theme="light"] .import-list-item::after {
   background: radial-gradient(150% 130% at 50% -12%, rgba(253,250,242,0.35) 0%, transparent 60%);
+}
+/* 词表项在浅色主题下去掉中心柔光：
+   几十个词卡的径向渐变叠加会产生明显的同心椭圆干涉条纹，严重影响文字可读性 */
+html[data-theme="light"] .wl-item::after {
+  background: none;
 }
 
 /* 4. 完成页统计卡阴影：默认主题使用"展示型大卡片"阴影，浅色改用暖色列表阴影（--shadow-list 语义），无法并入单一 token，故保留 */
