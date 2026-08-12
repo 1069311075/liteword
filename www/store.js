@@ -26,6 +26,11 @@
   }
 
   var Store = {
+    // 写入回调（供云同步等模块监听数据变化）：onWrite(key, valueString)
+    _writeCbs: [],
+    onWrite: function (cb) {
+      if (typeof cb === 'function') Store._writeCbs.push(cb);
+    },
     // 同步读取（从内存缓存，init 后即为最新）
     getItem: function (key) {
       return Object.prototype.hasOwnProperty.call(cache, key) ? cache[key] : null;
@@ -38,6 +43,9 @@
         global.Capacitor.Plugins.Preferences.set({ key: key, value: str }).catch(function () {});
       } else {
         try { global.localStorage.setItem(key, str); } catch (e) {}
+      }
+      for (var i = 0; i < Store._writeCbs.length; i++) {
+        try { Store._writeCbs[i](key, str); } catch (e) {}
       }
     },
     removeItem: function (key) {

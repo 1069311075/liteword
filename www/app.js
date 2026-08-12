@@ -449,6 +449,10 @@ let answerRevealed = false;
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
+  // 打开设置页时刷新云同步登录状态
+  if (name === 'settings' && typeof sync !== 'undefined' && sync.loadSettingsUI) {
+    sync.loadSettingsUI();
+  }
   // 完成页和首页时隐藏右侧深度面板
   const rightPanel = document.querySelector('.panel-right');
   if (rightPanel) {
@@ -461,6 +465,47 @@ function showPage(name) {
     }
   }
 }
+
+// ========== 独立登录页 ==========
+function updateLoginEntry() {
+  const loggedIn = !!(window.sync && sync.auth && sync.auth.token);
+  const btn = document.getElementById('btn-hdr-login');
+  const dot = document.getElementById('btn-hdr-login-dot');
+  if (!btn) return;
+  if (loggedIn) {
+    btn.textContent = '已同步';
+    btn.classList.add('signed-in');
+    if (dot) dot.style.display = '';
+  } else {
+    btn.textContent = '登录';
+    btn.classList.remove('signed-in');
+    if (dot) dot.style.display = 'none';
+  }
+}
+function openLogin() {
+  const loggedIn = !!(window.sync && sync.auth && sync.auth.token);
+  const form = document.getElementById('login-form-wrap');
+  const signed = document.getElementById('login-signedin');
+  const fine = document.getElementById('login-fine-tip');
+  if (loggedIn) {
+    if (form) form.style.display = 'none';
+    if (signed) signed.style.display = 'flex';
+    if (fine) fine.style.display = 'none';
+    const phoneEl = document.getElementById('login-user-phone');
+    if (phoneEl) phoneEl.textContent = sync.auth.username || '';
+  } else {
+    if (form) form.style.display = '';
+    if (signed) signed.style.display = 'none';
+    if (fine) fine.style.display = '';
+  }
+  document.body.classList.add('logined');
+  document.getElementById('page-login').classList.add('active');
+}
+function closeLogin() {
+  document.getElementById('page-login').classList.remove('active');
+  document.body.classList.remove('logined');
+}
+
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
@@ -3014,6 +3059,11 @@ async function init() {
   try { await Store.init(); } catch(e) {}
   // 执行 schema 版本迁移：为旧数据补上版本号，并运行从旧版本到当前版本的逐级迁移
   try { Store.runMigrations(); } catch(e) {}
+  // 初始化云同步模块（注册写入钩子；已登录则后台拉取合并）
+  if (typeof sync !== 'undefined' && sync.init) { try { sync.init(); } catch(e) {} }
+  // 登录入口状态 & 监听登录态变化（登录/退出后刷新首页按钮）
+  window.onSyncAuthChange = updateLoginEntry;
+  updateLoginEntry();
   // 将用户导入的自定义词库合并进 WORD_BANK（必须在 Store.init 之后，否则读不到持久化数据）
   if (typeof mergeCustomWords === 'function') mergeCustomWords();
   // 应用主题模式（必须在渲染前设置 data-theme）
