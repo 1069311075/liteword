@@ -94,48 +94,6 @@
   </div>
 </div>
 
-<!-- ===== 登录页（全屏） ===== -->
-<div id="page-login">
-  <div class="login-glass lg-strong">
-    <div class="login-content">
-      <nav class="login-nav">
-        <div class="onboard-nav-logo">
-          <div class="logo-dot lg">轻</div>
-          <span>LiteWord</span>
-        </div>
-        <button class="login-close lg" onclick="closeLogin()" title="关闭">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </nav>
-      <div class="login-hero">
-        <h1 class="login-title">Sign <em>in</em></h1>
-        <p class="login-sub">手机号登录 · 多设备同步</p>
-
-        <div class="login-form" id="login-form-wrap">
-          <div class="login-field">
-            <input type="tel" class="login-input" id="login-phone" placeholder="请输入手机号" maxlength="11" autocomplete="tel">
-          </div>
-          <div class="login-field row">
-            <input type="text" class="login-input" id="login-code" placeholder="6 位验证码" maxlength="6" autocomplete="one-time-code">
-            <button class="login-code-btn lg" id="login-btn-code" onclick="sync.sendCodeFromLogin()">获取验证码</button>
-          </div>
-          <button class="login-submit lg" id="login-btn-submit" onclick="sync.loginWithSmsFromLogin()">
-            <span>登录 / 注册</span>
-          </button>
-        </div>
-
-        <div class="login-signedin" id="login-signedin" style="display:none;">
-          <div class="login-avatar lg">✓</div>
-          <div class="login-phone" id="login-user-phone"></div>
-          <button class="login-submit lg muted" onclick="sync.logoutFromLogin()">退出登录</button>
-        </div>
-
-        <div class="login-status" id="login-status"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ===== 主应用壳 ===== -->
 <div class="app-shell">
   <!-- 左栏：玻璃面板 -->
@@ -148,7 +106,6 @@
           <div class="header">
             <div class="header-title"><em>LiteWord</em></div>
             <div class="header-actions">
-              <button class="header-login lg" id="btn-hdr-login" onclick="openLogin()">登录</button>
               <button class="icon-btn lg" onclick="showPage('settings')" title="设置">⚙</button>
             </div>
           </div>
@@ -391,40 +348,6 @@
               <button class="setting-btn" onclick="openSystemTTS()">系统设置</button>
             </div>
           </div>
-          <div class="settings-group-title">云同步</div>
-          <div class="settings-group lg">
-            <div class="setting-item">
-              <div class="setting-label">服务器地址<br/><span class="setting-sub">后端 API 地址</span></div>
-              <input type="text" class="setting-input" id="set-sync-server" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000" onchange="sync.saveServer(this.value)">
-            </div>
-            <div class="setting-item" id="sync-login-fields">
-              <div class="setting-label">手机号<br/><span class="setting-sub">一键登录，未注册自动开通</span></div>
-              <input type="tel" class="setting-input" id="set-sync-phone" placeholder="11 位手机号">
-            </div>
-            <div class="setting-item" id="sync-pass-fields">
-              <div class="setting-label">验证码</div>
-              <div class="sync-actions">
-                <input type="text" class="setting-input" id="set-sync-code" placeholder="6 位验证码" style="flex:1;">
-                <button class="setting-btn" id="btn-send-code" onclick="sync.sendCode()">获取验证码</button>
-              </div>
-            </div>
-            <div class="setting-item">
-              <div class="setting-label">登录</div>
-              <button class="setting-btn primary" id="btn-sync-login" onclick="sync.loginWithSms()">登录 / 注册</button>
-            </div>
-            <div class="setting-item" id="sync-user-row" style="display:none;">
-              <div class="setting-label">已登录<br/><span class="setting-sub" id="sync-user-name"></span></div>
-              <button class="setting-btn" onclick="sync.logout()">退出</button>
-            </div>
-            <div class="setting-item">
-              <div class="setting-label">立即同步</div>
-              <button class="setting-btn" id="btn-sync-run" onclick="sync.syncNow()">同步</button>
-            </div>
-            <div class="setting-item">
-              <div class="setting-label">同步状态</div>
-              <div class="sync-status" id="sync-status">未登录</div>
-            </div>
-          </div>
           <div class="settings-group-title">数据管理</div>
           <div class="settings-group lg">
             <div class="setting-item single" id="import-entry" style="cursor:pointer;" onclick="openImportPanel()">
@@ -434,10 +357,6 @@
             <div class="setting-item single">
               <div class="setting-label">重置所有数据</div>
               <button class="setting-btn danger" onclick="resetData()">清空</button>
-            </div>
-            <div class="setting-item single" id="account-delete-row" style="cursor:pointer;">
-              <div class="setting-label">注销账号<br/><span class="setting-sub">删除云端账号与同步数据</span></div>
-              <button class="setting-btn danger" onclick="deleteAccount()">注销</button>
             </div>
           </div>
           <div class="settings-group-title">关于</div>
@@ -460,7 +379,7 @@
           </div>
           <div class="tips" style="margin-top:40px;">
             轻词 LiteWord v1.0.1<br/>
-            数据保存在设备本地 · 云端同步
+            数据保存在设备本地
           </div>
         </div>
 
@@ -627,7 +546,6 @@
 
 <script src="store.js"></script>
 <script src="words.js"></script>
-<script src="sync.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

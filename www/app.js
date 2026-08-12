@@ -449,10 +449,6 @@ let answerRevealed = false;
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  // 打开设置页时刷新云同步登录状态
-  if (name === 'settings' && typeof sync !== 'undefined' && sync.loadSettingsUI) {
-    sync.loadSettingsUI();
-  }
   // 完成页和首页时隐藏右侧深度面板
   const rightPanel = document.querySelector('.panel-right');
   if (rightPanel) {
@@ -464,43 +460,6 @@ function showPage(name) {
       rightPanel.style.pointerEvents = '';
     }
   }
-}
-
-// ========== 独立登录页 ==========
-function updateLoginEntry() {
-  const loggedIn = !!(window.sync && sync.auth && sync.auth.token);
-  const btn = document.getElementById('btn-hdr-login');
-  if (!btn) return;
-  if (loggedIn) {
-    btn.textContent = '已同步';
-    btn.classList.add('signed-in');
-  } else {
-    btn.textContent = '登录';
-    btn.classList.remove('signed-in');
-  }
-}
-function openLogin() {
-  const loggedIn = !!(window.sync && sync.auth && sync.auth.token);
-  const form = document.getElementById('login-form-wrap');
-  const signed = document.getElementById('login-signedin');
-  const fine = document.getElementById('login-fine-tip');
-  if (loggedIn) {
-    if (form) form.style.display = 'none';
-    if (signed) signed.style.display = 'flex';
-    if (fine) fine.style.display = 'none';
-    const phoneEl = document.getElementById('login-user-phone');
-    if (phoneEl) phoneEl.textContent = sync.auth.username || '';
-  } else {
-    if (form) form.style.display = '';
-    if (signed) signed.style.display = 'none';
-    if (fine) fine.style.display = '';
-  }
-  document.body.classList.add('logined');
-  document.getElementById('page-login').classList.add('active');
-}
-function closeLogin() {
-  document.getElementById('page-login').classList.remove('active');
-  document.body.classList.remove('logined');
 }
 
 function toast(msg) {
@@ -2547,16 +2506,6 @@ async function resetData() {
   toast('所有数据已重置'); refreshHome();
 }
 
-// 注销账号：二次确认后删除云端账号，保留本地数据
-async function deleteAccount() {
-  const loggedIn = !!(window.sync && sync.auth && sync.auth.token);
-  if (!loggedIn) { toast('当前未登录'); return; }
-  const ok = await showConfirm('注销账号', '确定要注销当前账号吗？将永久删除云端账号及其同步数据。本地学习数据会保留在你的设备上。此操作不可恢复。');
-  if (!ok) return;
-  const done = await sync.deleteAccount();
-  if (done) { toast('账号已注销'); refreshHome(); }
-}
-
 // ========== 导入词库 ==========
 function openImportPanel() {
   document.getElementById('import-mask').classList.add('show');
@@ -2583,18 +2532,17 @@ const INFO_CONTENT = {
   privacy: {
     title: '隐私政策',
     body: [
-      ['数据归属', '你的学习记录、词库与连续天数默认保存在设备本地，不会上传到任何服务器。'],
-      ['账号与云同步', '当你登录云端同步时，仅会同步你的学习数据用于多设备备份。我们不会收集你的通讯录、相册、位置等无关信息。'],
+      ['数据归属', '你的学习记录、词库与连续天数全部保存在设备本地，不会上传到任何服务器。'],
       ['背景视频', '若你选择从相册选取背景视频，该文件仅保存在本机，不会被上传或共享。'],
-      ['数据安全', '我们采用加密连接传输你的登录凭据与学习数据，并尽力保障数据不被未授权访问。'],
-      ['你的权利', '你可以随时在设置中清空全部数据，或通过账号注销删除云端备份。']
+      ['数据安全', '所有学习数据仅存于本机，不会被上传或以任何方式传输到外部。'],
+      ['你的权利', '你可以随时在设置中清空全部数据，无需担心账号或云端残留。']
     ]
   },
   terms: {
     title: '用户协议',
     body: [
-      ['服务说明', '轻词 LiteWord 是一款本地优先的英语单词学习应用，提供分类学习、记忆复习与云端同步（可选）功能。'],
-      ['数据与隐私', '未登录时，全部数据仅保存在你的设备。登录后，学习数据将用于同步备份，具体见《隐私政策》。'],
+      ['服务说明', '轻词 LiteWord 是一款本地优先的英语单词学习应用，提供分类学习与记忆复习功能。'],
+      ['数据与隐私', '全部数据仅保存在你的设备本地，不上传任何服务器，具体见《隐私政策》。'],
       ['合理使用', '请勿利用本应用从事任何违反法律法规或侵犯他人权益的行为。'],
       ['服务变更', '我们保留优化、调整或终止部分功能的权利，并会在此处及时更新本协议。'],
       ['联系方式', '如对本协议有任何疑问，可通过设置页的意见反馈入口与我们联系。']
@@ -3179,11 +3127,6 @@ async function init() {
   try { await Store.init(); } catch(e) {}
   // 执行 schema 版本迁移：为旧数据补上版本号，并运行从旧版本到当前版本的逐级迁移
   try { Store.runMigrations(); } catch(e) {}
-  // 初始化云同步模块（注册写入钩子；已登录则后台拉取合并）
-  if (typeof sync !== 'undefined' && sync.init) { try { sync.init(); } catch(e) {} }
-  // 登录入口状态 & 监听登录态变化（登录/退出后刷新首页按钮）
-  window.onSyncAuthChange = updateLoginEntry;
-  updateLoginEntry();
   // 将用户导入的自定义词库合并进 WORD_BANK（必须在 Store.init 之后，否则读不到持久化数据）
   if (typeof mergeCustomWords === 'function') mergeCustomWords();
   // 应用主题模式（必须在渲染前设置 data-theme）
