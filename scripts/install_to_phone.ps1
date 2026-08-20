@@ -33,6 +33,12 @@ if ($devices.Count -eq 0) { Write-Error "未检测到已连接的 Android 设备
 $serial = ($devices[0] -split '\s+')[0]
 Write-Host "    设备: $serial" -ForegroundColor Green
 
+# --- 2.3 端口转发：让手机能访问电脑后端 (adb reverse) ---
+# 手机 App 的后端地址是 http://127.0.0.1:8000，手机上的 127.0.0.1 指向手机自身，
+# 通过 adb reverse 把手机 8000 端口转发到电脑 8000，手机即可访问本机 FastAPI 后端。
+Write-Host "==> 端口转发 (手机 8000 -> 电脑 8000) ..." -ForegroundColor Cyan
+& $adb -s $serial reverse tcp:8000 tcp:8000 2>&1 | Out-Null
+
 # --- 2.5 同步 www -> 手机资源 (cap copy) ---
 # www/ 是 Capacitor 的 webDir 唯一源，cap copy 将其复制到 android/app/src/main/assets/public，
 # 手机 WebView 加载的是后者。这样只需维护 www/ 一处，无需手动同步两份。
