@@ -13,7 +13,6 @@
     'lw_records',
     'lw_onboard',
     'lw_streak',
-    'lw_progress',
     'lw_custom_words',
     'lw_custom_cats',
     'lw_schema_version'

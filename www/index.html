@@ -17,7 +17,7 @@
 </video>
 <div class="bg-overlay"></div>
 
-<!-- ===== 引导页（全屏） ===== -->
+<!-- ===== 引导页（全屏 · 特色介绍） ===== -->
 <div id="page-onboard">
   <div class="onboard-glass lg-strong">
     <div class="onboard-content">
@@ -30,60 +30,53 @@
       <div class="onboard-hero">
         <div class="onboard-badge lg">
           <span class="badge-chip">New</span>
-          <span>选择场景，定制你的词库</span>
+          <span>轻量 · 本地 · 场景化</span>
         </div>
-        <h1 class="onboard-title">Choose your<br/><em>vocabulary</em></h1>
-        <p class="onboard-sub">选择你最常接触英文的场景，我们为你推荐最合适的词汇</p>
-        <div class="scene-grid" id="scene-grid">
-        <div class="scene-card lg" data-cat="ai-prompt" onclick="toggleScene(this)">
-          <div class="scene-check">✓</div>
-          <div class="scene-name">AI 提示词</div>
-          <div class="scene-desc">英文 prompt、AI 对话</div>
+        <h1 class="onboard-title">学词，<br/>为了<em>马上用</em></h1>
+        <p class="onboard-sub">按场景学高频词，学完立即复习，间隔重复直到真正掌握</p>
+        <div class="feature-list">
+          <div class="feature-row lg">
+            <div class="feature-icon">场</div>
+            <div class="feature-body">
+              <div class="feature-name">场景化词库</div>
+              <div class="feature-desc">AI、开发、旅行…按需定制</div>
+            </div>
+          </div>
+          <div class="feature-row lg">
+            <div class="feature-icon">学</div>
+            <div class="feature-body">
+              <div class="feature-name">学完即复习</div>
+              <div class="feature-desc">新词学完立刻进入复习，零延迟</div>
+            </div>
+          </div>
+          <div class="feature-row lg">
+            <div class="feature-icon">忆</div>
+            <div class="feature-body">
+              <div class="feature-name">间隔重复</div>
+              <div class="feature-desc">7 轮记忆曲线，真正记住</div>
+            </div>
+          </div>
+          <div class="feature-row lg">
+            <div class="feature-icon">析</div>
+            <div class="feature-body">
+              <div class="feature-name">深度解析</div>
+              <div class="feature-desc">例句、场景用法、真人发音</div>
+            </div>
+          </div>
+          <div class="feature-row lg">
+            <div class="feature-icon">本</div>
+            <div class="feature-body">
+              <div class="feature-name">纯本地离线</div>
+              <div class="feature-desc">数据不上传，无网也能学</div>
+            </div>
+          </div>
         </div>
-        <div class="scene-card lg" data-cat="ai-model" onclick="toggleScene(this)">
-          <div class="scene-check">✓</div>
-          <div class="scene-name">AI 模型</div>
-          <div class="scene-desc">模型训练、推理、微调</div>
-        </div>
-        <div class="scene-card lg" data-cat="git" onclick="toggleScene(this)">
-          <div class="scene-check">✓</div>
-          <div class="scene-name">Git & GitHub</div>
-          <div class="scene-desc">仓库操作、协作流程</div>
-        </div>
-        <div class="scene-card lg" data-cat="devops" onclick="toggleScene(this)">
-          <div class="scene-check">✓</div>
-          <div class="scene-name">开发部署</div>
-          <div class="scene-desc">技术文档、代码注释、架构</div>
-        </div>
-        <div class="scene-card lg" data-cat="ios" onclick="toggleScene(this)">
-          <div class="scene-check">✓</div>
-          <div class="scene-name">iPhone & iOS</div>
-          <div class="scene-desc">系统设置、蓝牙、电量</div>
-        </div>
-        <div class="scene-card lg" data-cat="software" onclick="toggleScene(this)">
-          <div class="scene-check">✓</div>
-          <div class="scene-name">软件应用</div>
-          <div class="scene-desc">安装同步、偏好设置</div>
-        </div>
-        <div class="scene-card lg" data-cat="travel-air" onclick="toggleScene(this)">
-          <div class="scene-check">✓</div>
-          <div class="scene-name">机场航班</div>
-          <div class="scene-desc">登机、护照、海关</div>
-        </div>
-        <div class="scene-card lg" data-cat="travel-stay" onclick="toggleScene(this)">
-          <div class="scene-check">✓</div>
-          <div class="scene-name">酒店出行</div>
-          <div class="scene-desc">预订、问路、货币</div>
-        </div>
-      </div>
       </div>
       <div class="onboard-footer">
-        <div class="onboard-hint" id="onboard-hint">选择一个词库开始学习</div>
         <button class="onboard-cta lg-strong" id="onboard-btn" onclick="finishOnboard()">
-          <span id="onboard-btn-text">开启我的词库</span>
+          <span id="onboard-btn-text">开始使用</span>
           <span class="cta-icon">→</span>
         </button>
-        <button class="onboard-skip" onclick="skipOnboard()">先随便看看</button>
         <div class="onboard-tags">
           <span class="onboard-tag lg">不背单词</span>
           <span class="onboard-tag lg">间隔重复</span>
@@ -317,7 +310,7 @@
               <div class="setting-label">每日复习提醒</div>
               <button class="setting-btn" id="btn-notify" onclick="toggleNotification()" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">开启</button>
             </div>
-            <div class="setting-item subrow" id="notify-time-row" style="display:none;">
+            <div class="setting-item" id="notify-time-row" style="display:none;">
               <div class="setting-label">提醒时间</div>
               <input type="time" class="setting-input" id="set-notifyTime" value="20:00" style="width:100px;" onchange="updateNotifyTime()">
             </div>
@@ -325,7 +318,7 @@
               <div class="setting-label">复习日程<br/><span class="setting-sub">学完后写入系统日历，到点提醒</span></div>
               <button class="setting-btn" id="btn-calendar" onclick="toggleCalendarReview()" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">开启</button>
             </div>
-            <div class="setting-item subrow" id="calendar-defer-row" style="display:none;">
+            <div class="setting-item" id="calendar-defer-row" style="display:none;">
               <div class="setting-label">深夜顺延到<br/><span class="setting-sub">23:00后自动顺延至次日</span></div>
               <input type="time" class="setting-input" id="set-calendarDefer" value="08:00" style="width:100px;" onchange="updateCalendarDefer()">
             </div>
@@ -355,6 +348,14 @@
               <button class="setting-btn" style="background:var(--tg-off-bg);border-color:var(--tg-off-border);color:var(--tg-off-color);">打开</button>
             </div>
             <div class="setting-item single">
+              <div class="setting-label">导出备份<br/><span class="setting-sub">复制全部学习数据，防止丢失</span></div>
+              <button class="setting-btn" onclick="exportBackup()">导出</button>
+            </div>
+            <div class="setting-item single">
+              <div class="setting-label">恢复备份<br/><span class="setting-sub">粘贴之前导出的备份数据</span></div>
+              <button class="setting-btn" onclick="openRestorePanel()">恢复</button>
+            </div>
+            <div class="setting-item single">
               <div class="setting-label">重置所有数据</div>
               <button class="setting-btn danger" onclick="resetData()">清空</button>
             </div>
@@ -379,7 +380,7 @@
           </div>
           <div class="tips" style="margin-top:40px;">
             轻词 LiteWord v1.0.1<br/>
-            数据保存在设备本地
+            数据保存在设备本地 · 离线可用
           </div>
         </div>
 
@@ -487,40 +488,7 @@
           </div>
           <div class="lib-source-arrow">›</div>
         </div>
-        <div class="lib-source-row" onclick="closeLibPanel(); openMarketPanel();">
-          <div class="lib-source-icon">⇄</div>
-          <div class="lib-source-body">
-            <div class="lib-source-title">词库市场</div>
-            <div class="lib-source-desc">云端精选词库</div>
-          </div>
-          <span class="lib-source-badge">待上线</span>
-        </div>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- 词库市场面板（占位 UI，待后端接入） -->
-<div class="lib-mask" id="market-mask">
-  <div class="lib-panel lg-strong">
-    <div class="lib-panel-header">
-      <button class="icon-btn lg" onclick="closeMarketPanel()" aria-label="关闭词库市场">←</button>
-      <div class="lib-panel-title">词库市场</div>
-      <div class="lib-panel-count" id="market-count"></div>
-    </div>
-    <div class="lib-panel-body">
-      <div class="market-search">
-        <input type="text" id="market-search-input" placeholder="搜索词库..." oninput="renderMarket(this.value)">
-      </div>
-      <div class="market-tabs" id="market-tabs">
-        <button class="market-tab active" data-cat="all" onclick="switchMarketTab(this)">推荐</button>
-        <button class="market-tab" data-cat="ai" onclick="switchMarketTab(this)">AI</button>
-        <button class="market-tab" data-cat="dev" onclick="switchMarketTab(this)">开发</button>
-        <button class="market-tab" data-cat="travel" onclick="switchMarketTab(this)">旅行</button>
-        <button class="market-tab" data-cat="life" onclick="switchMarketTab(this)">生活</button>
-      </div>
-      <div class="market-list" id="market-list"></div>
-      <div class="market-footer">云端词库将随后端上线后开放</div>
     </div>
   </div>
 </div>
@@ -540,6 +508,53 @@
         <button class="wl-tab" data-f="done" onclick="setWordFilter('done')">已掌握</button>
       </div>
       <div class="wordlist-list" id="wordlist-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 导出备份面板（自动复制失败时供手动复制） -->
+<div class="import-mask" id="backup-mask">
+  <div class="import-panel lg-strong">
+    <div class="import-header">
+      <button class="icon-btn lg" onclick="closeBackupPanel()" aria-label="关闭备份面板">←</button>
+      <div class="import-title">导出备份</div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="import-body">
+      <div class="import-step">
+        <div class="import-step-text">
+          <div class="import-step-title">复制以下备份数据</div>
+          <div class="import-step-desc">保存到备忘录或文件，防止数据丢失</div>
+        </div>
+        <button class="import-copy-btn" onclick="copyBackupText()">复制</button>
+      </div>
+      <textarea class="import-textarea" id="backup-textarea" readonly></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- 恢复备份面板 -->
+<div class="import-mask" id="restore-mask">
+  <div class="import-panel lg-strong">
+    <div class="import-header">
+      <button class="icon-btn lg" onclick="closeRestorePanel()" aria-label="关闭恢复面板">←</button>
+      <div class="import-title">恢复备份</div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="import-body">
+      <div class="import-step">
+        <div class="import-step-num">1</div>
+        <div class="import-step-text">
+          <div class="import-step-title">粘贴备份数据</div>
+          <div class="import-step-desc">将"导出备份"复制的 JSON 粘贴到下方</div>
+        </div>
+      </div>
+      <textarea class="import-textarea" id="restore-textarea" placeholder="在此粘贴备份 JSON"></textarea>
+      <div class="import-stats" id="restore-stats"></div>
+      <div class="import-actions">
+        <button class="btn btn-glass import-cancel" onclick="closeRestorePanel()">取消</button>
+        <button class="btn btn-primary import-confirm" onclick="confirmRestore()">恢复数据</button>
+      </div>
     </div>
   </div>
 </div>

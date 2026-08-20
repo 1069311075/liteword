@@ -20,6 +20,69 @@ const STORAGE_KEY_PROGRESS = 'lw_progress';
 
 let selectedCategories = new Set();
 
+// ========== 学习进度静默保存（零弹窗续接） ==========
+// 每组学习很短，位置静默落盘、不弹任何窗；首页按钮变为"继续上次"即可续接。
+function saveStudyProgress() {
+  if (!currentQueue || currentQueue.length === 0) return;
+  try {
+    const progress = {
+      queue: currentQueue.map(w => ({ word: w.word, sceneReview: !!w._sceneReview })),
+      index: currentIndex,
+      mode: currentMode,
+      startCount: studyStartCount,
+      startTime: studyStartTime,
+      processed: [...processedIndices],
+      title: (function(){ const el = document.getElementById('study-mode'); return el ? el.textContent : ''; })()
+    };
+    Store.setItem(STORAGE_KEY_PROGRESS, JSON.stringify(progress));
+  } catch(e) {}
+}
+function clearStudyProgress() {
+  Store.removeItem(STORAGE_KEY_PROGRESS);
+}
+function getStudyProgress() {
+  try {
+    const s = Store.getItem(STORAGE_KEY_PROGRESS);
+    return s ? JSON.parse(s) : null;
+  } catch(e) { return null; }
+}
+// 是否存在可续接的未完成组
+function hasResumableProgress() {
+  const p = getStudyProgress();
+  return !!(p && p.queue && p.queue.length > 0 && (p.mode === 'learn' || p.mode === 'review'));
+}
+// 静默续接：从上次位置继续，不弹任何选择框
+function resumeStudy() {
+  const p = getStudyProgress();
+  if (!p || !p.queue || p.queue.length === 0) return false;
+  const records = getRecords();
+  const queue = p.queue.map(item => {
+    const word = (typeof item === 'string') ? item : (item && item.word);
+    if (!word) return null;
+    const sceneReview = (typeof item === 'object' && item) ? !!item.sceneReview : false;
+    const bw = WORD_BANK.find(b => b.word === word);
+    if (!bw) return null;
+    const rec = records[word];
+    let round;
+    if (sceneReview && rec && rec.sceneReview && typeof rec.sceneReview.round === 'number') round = rec.sceneReview.round;
+    else round = (rec && typeof rec.currentRound === 'number') ? rec.currentRound : 1;
+    return {...bw, mode: p.mode === 'review' ? 'review' : 'new', _round: round, _sceneReview: sceneReview};
+  }).filter(Boolean);
+  if (queue.length === 0) { clearStudyProgress(); return false; }
+  currentQueue = queue;
+  currentIndex = Math.min(p.index, queue.length - 1);
+  currentMode = p.mode;
+  studyStartCount = p.startCount;
+  studyStartTime = p.startTime;
+  processedIndices = new Set(p.processed || []);
+  slideDirection = 'right';
+  const modeEl = document.getElementById('study-mode');
+  if (modeEl) modeEl.textContent = p.title || (p.mode === 'review' ? '综合复习' : '学习新词');
+  showPage('study');
+  showCurrentWord();
+  return true;
+}
+
 function getConfig() {
   const defaultConfig = { groupSize:20, notifyEnabled:false, notifyTime:'20:00', voiceType:'us', categories:['ai-prompt'], bgVideoUrl:'', bgVideoEnabled:true, themeMode:'frost', showHints:true, fontMode:'classic', calendarReview:false, calendarDefer:'08:00' };
   try {
@@ -169,57 +232,6 @@ function getReviewMeanings(word, rec) {
   return out;
 }
 
-// ========== 学习进度持久化（中断恢复） ==========
-function saveStudyProgress() {
-  if (!currentQueue || currentQueue.length === 0) return;
-  try {
-    const progress = {
-      queue: currentQueue.map(w => w.word),
-      index: currentIndex,
-      mode: currentMode,
-      startCount: studyStartCount,
-      startTime: studyStartTime,
-      processed: [...processedIndices]
-    };
-    Store.setItem(STORAGE_KEY_PROGRESS, JSON.stringify(progress));
-  } catch(e) {}
-}
-function clearStudyProgress() {
-  Store.removeItem(STORAGE_KEY_PROGRESS);
-}
-function getStudyProgress() {
-  try {
-    const s = Store.getItem(STORAGE_KEY_PROGRESS);
-    return s ? JSON.parse(s) : null;
-  } catch(e) { return null; }
-}
-function resumeStudy() {
-  const p = getStudyProgress();
-  if (!p || !p.queue || p.queue.length === 0) return false;
-  const records = getRecords();
-  // 从 WORD_BANK 重建队列对象
-  const queue = p.queue.map(word => {
-    const bw = WORD_BANK.find(b => b.word === word);
-    if (!bw) return null;
-    const rec = records[word];
-    const round = rec && typeof rec.currentRound === 'number' ? rec.currentRound : 1;
-    return {...bw, mode: p.mode === 'review' ? 'review' : 'new', _round: round};
-  }).filter(Boolean);
-  if (queue.length === 0) { clearStudyProgress(); return false; }
-  currentQueue = queue;
-  currentIndex = Math.min(p.index, queue.length - 1);
-  currentMode = p.mode;
-  studyStartCount = p.startCount;
-  studyStartTime = p.startTime;
-  processedIndices = new Set(p.processed || []);
-  slideDirection = 'right';
-  // 恢复学习模式文字
-  document.getElementById('study-mode').textContent = p.mode === 'review' ? '复习旧词' : '学习新词';
-  showPage('study');
-  showCurrentWord();
-  return true;
-}
-
 // ========== 连续学习天数 ==========
 function getStreak() {
   try {
@@ -263,13 +275,17 @@ function formatTimeUntil(timestamp) {
   return Math.floor(days/7) + '周后';
 }
 
-// 获取最近到期词的时间
+// 获取最近到期词的时间（含已掌握词的"新义复习"轨道）
 function getNextDueTime(records) {
   const now = Date.now();
   let earliest = Infinity;
   Object.values(records).forEach(r => {
     if (r.currentRound > 0 && r.currentRound < 7 && r.nextReviewTime > now) {
       if (r.nextReviewTime < earliest) earliest = r.nextReviewTime;
+    }
+    const sr = r.sceneReview;
+    if (sr && sr.round > 0 && sr.round < 7 && sr.nextReviewTime > now) {
+      if (sr.nextReviewTime < earliest) earliest = sr.nextReviewTime;
     }
   });
   return earliest === Infinity ? null : earliest;
@@ -281,8 +297,14 @@ function updateMemoryDots(word) {
   const rec = records[word];
   const dotsEl = document.getElementById('memory-dots');
   if (!dotsEl) return;
+  // 已掌握词的"新义复习"走独立轨道，进度点显示新义轮次
+  const cur = currentQueue[currentIndex];
+  const isSceneReview = !!(cur && cur.word === word && cur._sceneReview);
   let round = 0;
-  if (rec) round = rec.currentRound || 0;
+  if (rec) {
+    if (isSceneReview && rec.sceneReview && typeof rec.sceneReview.round === 'number') round = rec.sceneReview.round;
+    else round = rec.currentRound || 0;
+  }
   if (round === 0) {
     dotsEl.classList.remove('visible');
     return;
@@ -294,23 +316,30 @@ function updateMemoryDots(word) {
     else if (i === round) cls += ' active';
     html += '<div class="'+cls+'"></div>';
   }
-  html += '<span class="mdots-label">'+round+'/7</span>';
+  html += '<span class="mdots-label">'+(isSceneReview ? '新义 ' : '')+round+'/7</span>';
   dotsEl.innerHTML = html;
   dotsEl.classList.add('visible');
 }
+// 返回到期词列表：[{ word, sceneReview }]
+// sceneReview=false：常规轮次到期（round 1-6）；
+// sceneReview=true：已掌握词的"新场景义"独立复习轨道到期。
 function getDueWords(records) {
   const now = Date.now();
-  return Object.entries(records).filter(([w,r]) => {
+  const out = [];
+  Object.entries(records).forEach(([w,r]) => {
     // 仅统计当前词库（WORD_BANK）中确实可复习的词，
     // 排除已删除词库残留的学习记录（孤儿词），避免空复习与按钮误点亮
-    if (!WORD_BANK.some(b => b.word === w)) return false;
-    // 严格过滤：必须有有效轮次、未掌握、且到了复习时间
+    if (!WORD_BANK.some(b => b.word === w)) return;
     const round = r.currentRound;
-    if (typeof round !== 'number' || isNaN(round) || round <= 0 || round >= 7) return false;
-    // nextReviewTime 必须是未来的有效时间戳
-    if (typeof r.nextReviewTime !== 'number' || r.nextReviewTime <= 0) return false;
-    return r.nextReviewTime <= now;
-  }).map(([w])=>w);
+    const mainDue = typeof round === 'number' && !isNaN(round) && round > 0 && round < 7
+      && typeof r.nextReviewTime === 'number' && r.nextReviewTime > 0 && r.nextReviewTime <= now;
+    if (mainDue) { out.push({ word: w, sceneReview: false }); return; }
+    const sr = r.sceneReview;
+    const srDue = sr && typeof sr.round === 'number' && !isNaN(sr.round) && sr.round > 0 && sr.round < 7
+      && typeof sr.nextReviewTime === 'number' && sr.nextReviewTime > 0 && sr.nextReviewTime <= now;
+    if (srDue) out.push({ word: w, sceneReview: true });
+  });
+  return out;
 }
 // 判断某词在当前已选场景下是否"还有未学过的场景义"
 // 返回 true 表示该词应纳入学习（有冲动要学的新场景义）；false 表示在当前场景下已全部学过
@@ -350,7 +379,7 @@ function getAssignedScene(w, active) {
   return null;
 }
 
-// 返回每个选中场景当前"可学词全量"统计，口径与 getNewWords 在首次学习时完全一致（含跨场景义与合成词）。
+// 返回每个选中场景当前"可学词全量"统计，口径与 getNewWords 在首次学习时完全一致（含跨场景义）。
 // total = 该场景可学词全量（稳定值，不随学习进度减少，学完后显示 N/N 而非 0/N）；
 // learned = 其中已学过的词数（currentRound > 0）。
 // 每词归属到唯一场景：主分类已选则归主分类，否则归给定词上第一个已选场景义。
@@ -371,14 +400,6 @@ function getSceneLearnableCounts(records) {
     const ass = getAssignedScene(w, active);
     if (ass) add(w.word, w, ass);
   });
-  // 合成词（不在 WORD_BANK、仅有场景义）
-  if (SCENE_WORD_MEANINGS) {
-    Object.keys(SCENE_WORD_MEANINGS).forEach(word => {
-      if (WORD_BANK.some(w => w.word === word)) return;
-      const hit = Object.keys(SCENE_WORD_MEANINGS[word]).find(sc => active.has(sc));
-      if (hit) add(word, { word: word, category: hit }, hit);
-    });
-  }
   return out;
 }
 
@@ -391,16 +412,6 @@ function getLearnableWordsForScene(records, scene) {
     if (getAssignedScene(w, active) !== scene) return;
     if (isSceneLearnable(w, w.word, records)) result.push(w);
   });
-  if (SCENE_WORD_MEANINGS) {
-    Object.keys(SCENE_WORD_MEANINGS).forEach(word => {
-      if (WORD_BANK.some(w => w.word === word)) return;
-      const hit = Object.keys(SCENE_WORD_MEANINGS[word]).find(sc => active.has(sc));
-      if (hit !== scene) return;
-      const meanings = SCENE_WORD_MEANINGS[word][hit] || [];
-      const synth = { word: word, phonetic: '', meanings: meanings, sentence: '', category: hit, _synthetic: true };
-      if (isSceneLearnable(synth, word, records)) result.push(synth);
-    });
-  }
   return result;
 }
 
@@ -417,19 +428,6 @@ function getNewWords(records) {
     if (!sceneRelevant) return;
     if (isSceneLearnable(w, w.word, records)) result.push(w);
   });
-  // 补充：仅在 SCENE_WORD_MEANINGS 有场景义、但不在 WORD_BANK 的词（如 menu、reset）
-  // 为它们合成临时词条，保证所选场景能学到这些场景义
-  if (active && SCENE_WORD_MEANINGS) {
-    Object.keys(SCENE_WORD_MEANINGS).forEach(word => {
-      if (WORD_BANK.some(w => w.word === word)) return; // 已在词库，跳过
-      const extraMap = SCENE_WORD_MEANINGS[word];
-      const hitScene = Object.keys(extraMap).find(sc => active.has(sc));
-      if (!hitScene) return;
-      const meanings = extraMap[hitScene] || [];
-      const synth = { word: word, phonetic: '', meanings: meanings, sentence: '', category: hitScene, _synthetic: true };
-      if (isSceneLearnable(synth, word, records)) result.push(synth);
-    });
-  }
   return result;
 }
 function getMasteredCount(records) { return Object.values(records).filter(r=>r.currentRound===7).length; }
@@ -646,7 +644,19 @@ function refreshHome() {
     }
     return true;
   });
-  if (dueWords.length>0) {
+  // 续接进度：只要有未完成组，对应按钮优先显示"继续上次"，零弹窗一点即续接
+  const resume = getStudyProgress();
+  const canResume = resume && resume.queue && resume.queue.length > 0;
+  const resumeIndex = canResume ? (resume.index + 1) : 0;
+  const resumeTotal = canResume ? resume.queue.length : 0;
+
+  if (canResume && resume.mode === 'review') {
+    reviewBtn.classList.remove('empty'); reviewBtn.style.pointerEvents='auto';
+    reviewBadge.textContent = resumeIndex + '/' + resumeTotal + '词';
+    reviewSub.textContent = '接上次的进度';
+    if (reviewTitle) reviewTitle.textContent = '继续上次';
+    reviewBtn.onclick = () => resumeStudy();
+  } else if (dueWords.length>0) {
     reviewBtn.classList.remove('empty'); reviewBtn.style.pointerEvents='auto';
     reviewBadge.textContent = dueWords.length+'词';
     reviewSub.textContent = '综合已学词义';
@@ -668,7 +678,14 @@ function refreshHome() {
   // 单词库优先：当前专注词库 = 已选词库的第一个
   const activeScene = (config.categories && config.categories.length>0) ? config.categories[0] : 'ai-prompt';
   const curNewWords = getLearnableWordsForScene(records, activeScene);
-  if (curNewWords.length > 0) {
+  if (canResume && resume.mode === 'learn') {
+    learnBtn.classList.remove('empty'); learnBtn.style.pointerEvents='auto';
+    const curLabel = SCENE_LABELS[activeScene] || activeScene;
+    learnBadge.textContent = resumeIndex + '/' + resumeTotal + '词';
+    learnSub.textContent = curLabel + ' · 接上次进度';
+    if (learnTitle) learnTitle.textContent = '继续上次';
+    learnBtn.onclick = () => resumeStudy();
+  } else if (curNewWords.length > 0) {
     learnBtn.classList.remove('empty'); learnBtn.style.pointerEvents='auto';
     const count = Math.min(config.groupSize, curNewWords.length);
     const curLabel = SCENE_LABELS[activeScene] || activeScene;
@@ -684,7 +701,7 @@ function refreshHome() {
     if (learnTitle) learnTitle.textContent = '学一组新词';
   }
 
-  // 环形进度图（并入词库大按钮）：中心数字 = 当前专注词库的总词数（与词列表同口径，含合成场景词）；
+  // 环形进度图（并入词库大按钮）：中心数字 = 当前专注词库的总词数（与词列表同口径）；
   // 环形填充 = 该词库的加权学习进度；完成度/连续天数写入词库大按钮 meta。
   const ringWords = getWordsForCat(activeScene);
   const ringTotal = ringWords.length;
@@ -904,7 +921,7 @@ function setWordFilter(f) {
   document.querySelectorAll('#wordlist-tabs .wl-tab').forEach(t => t.classList.toggle('active', t.dataset.f === f));
   renderWordList();
 }
-// 获取某词库的所有词（含合成场景词）
+// 获取某词库的所有词
 function getWordsForCat(cat) {
   const records = getRecords();
   const items = [];
@@ -915,16 +932,6 @@ function getWordsForCat(cat) {
       items.push({ word:w.word, phonetic:w.phonetic||'', meanings:w.meanings||[], rec:records[w.word], scene:null });
     }
   });
-  // 合成词（在 SCENE_WORD_MEANINGS 有该场景义、但在 WORD_BANK 主分类下的词）
-  if (typeof SCENE_WORD_MEANINGS !== 'undefined' && SCENE_WORD_MEANINGS) {
-    Object.keys(SCENE_WORD_MEANINGS).forEach(word => {
-      if (WORD_BANK.some(w => w.word === word)) return; // 已在主词库
-      if (SCENE_WORD_MEANINGS[word][cat]) {
-        seen.add(word);
-        items.push({ word:word, phonetic:'', meanings:SCENE_WORD_MEANINGS[word][cat], rec:records[word], scene:cat });
-      }
-    });
-  }
   return items;
 }
 function renderWordList() {
@@ -939,7 +946,11 @@ function renderWordList() {
     it._mastered = round >= 7;
     it._learning = round > 0 && round < 7;
     it._unlearned = round <= 0;
-    it._due = it._learning && it.rec.nextReviewTime <= _now;
+    // 已掌握词的"新义复习"轨道到期也视为待复习
+    it._srDue = it._mastered && it.rec.sceneReview
+      && typeof it.rec.sceneReview.nextReviewTime === 'number'
+      && it.rec.sceneReview.nextReviewTime > 0 && it.rec.sceneReview.nextReviewTime <= _now;
+    it._due = (it._learning && it.rec.nextReviewTime <= _now) || it._srDue;
   });
   // 过滤
   if (_wordlistFilter === 'due') items = items.filter(it => it._due);
@@ -965,7 +976,7 @@ function renderWordList() {
   let html = '';
   items.forEach(it => {
     let status = '未学', cls = 'un';
-    if (it._mastered) { status = it.rec.currentRound+'/7'; cls = 'done'; }
+    if (it._mastered) { status = it._srDue ? '新义待复习' : it.rec.currentRound+'/7'; cls = it._srDue ? 'due' : 'done'; }
     else if (it._due) { status = '待复习'; cls = 'due'; }
     else if (it._learning) { status = it.rec.currentRound+'/7'; cls = 'learning'; }
     const meanings = (it.meanings||[]).join('；');
@@ -1008,8 +1019,8 @@ function startLearn() {
   studyStartTime = Date.now();
   slideDirection = 'right';
   processedIndices = new Set();
-  saveStudyProgress();
   document.getElementById('study-mode').textContent = '学习「'+curLabel+'」';
+  saveStudyProgress();
   showPage('study'); showCurrentWord();
 }
 function startReview() {
@@ -1017,11 +1028,15 @@ function startReview() {
   const dueWords = getDueWords(records);
   if (dueWords.length===0) { toast('暂时没有待复习的词'); return; }
   // 穿插混合：打乱复习队列，混合不同轮次和分类
-  const reviewItems = dueWords.map(w => {
-    const bw = WORD_BANK.find(b=>b.word===w);
+  // sceneReview 到期词走"新义复习"轨道：轮次取新义轨道轮次，并打 _sceneReview 标记
+  const reviewItems = dueWords.map(d => {
+    const bw = WORD_BANK.find(b=>b.word===d.word);
     if (!bw) return null;
-    const rec = records[w];
-    return {...bw, mode:'review', _round: rec ? rec.currentRound : 1, _cat: bw.category};
+    const rec = records[d.word];
+    const round = (d.sceneReview && rec && rec.sceneReview && typeof rec.sceneReview.round === 'number')
+      ? rec.sceneReview.round
+      : (rec ? rec.currentRound : 1);
+    return {...bw, mode:'review', _round: round, _sceneReview: !!d.sceneReview, _cat: bw.category};
   }).filter(Boolean);
   // 防御：若队列为空（如记录存在但词库缺失），提示而非直接进入完成页
   if (reviewItems.length === 0) { toast('暂时没有可复习的词'); return; }
@@ -1031,7 +1046,6 @@ function startReview() {
   studyStartTime = Date.now();
   slideDirection = 'right';
   processedIndices = new Set();
-  saveStudyProgress();
   document.getElementById('study-mode').textContent = '综合复习';
   showPage('study'); showCurrentWord();
 }
@@ -1149,10 +1163,6 @@ function buildPhraseBreakdown(phrase) {
 function buildDeepHTML(word) {
   const data = DEEP_DATA[word];
   let bw = WORD_BANK.find(b => b.word === word);
-  // 合成词条（仅在 SCENE_WORD_MEANINGS、不在 WORD_BANK 的词）从当前队列补取
-  if (!bw && currentQueue && currentQueue.length) {
-    bw = currentQueue.find(b => b.word === word && b._synthetic);
-  }
   let html = '';
 
   // 词组拆分学习（放在最前面）
@@ -1743,9 +1753,44 @@ function recordCurrentWord(remembered) {
   const existingRound = (typeof existing.currentRound === 'number' && !isNaN(existing.currentRound)) ? existing.currentRound : 0;
   const now = Date.now();
 
+  // ===== 已掌握词的"新义复习"轨道（与掌握标记解耦）=====
+  // 复习模式下，当前词是已掌握词的新场景义到期：只推进 sceneReview 轨道，
+  // currentRound 保持 7，"累计掌握"数字不下滑。
+  if (currentMode === 'review' && w._sceneReview) {
+    const sr = (existing.sceneReview && typeof existing.sceneReview.round === 'number') ? existing.sceneReview : { round: 1 };
+    let srRound = remembered ? sr.round + 1 : FORGOT_RESET_ROUND;
+    if (srRound > 7) srRound = 7;
+    const rec = {
+      word: w.word, currentRound: existingRound,
+      nextReviewTime: existingRound >= 7 ? 0 : (typeof existing.nextReviewTime === 'number' ? existing.nextReviewTime : 0),
+      createTime: existing.createTime, lastReviewTime: now,
+      learnedScenes: existing.learnedScenes
+    };
+    // 新义轮次走完（7）即清除轨道，词保持已掌握状态
+    if (srRound < 7) rec.sceneReview = { round: srRound, nextReviewTime: calcNextReview(srRound, now) };
+    records[w.word] = rec;
+    if (remembered) recordLearnedScenes(records, w);
+    saveRecords(records);
+    return;
+  }
+
+  // ===== 学习模式：已掌握词学新场景义 =====
+  // 保留掌握标记（round 7），新义进入独立复习轨道，学完立即可复习（马上用）。
+  if (currentMode === 'learn' && remembered && existingRound >= 7) {
+    records[w.word] = {
+      word: w.word, currentRound: 7, nextReviewTime: 0,
+      createTime: existing.createTime, lastReviewTime: now,
+      learnedScenes: existing.learnedScenes,
+      sceneReview: { round: 1, nextReviewTime: calcNextReview(1, now) }
+    };
+    recordLearnedScenes(records, w);
+    saveRecords(records);
+    return;
+  }
+
   let nextRound;
   if (remembered) {
-    // 学习新词时，若该词已有记录（当前词是旧词的新场景义），从头重新学完整 SRS；
+    // 学习新词时，若该词已有记录且在学（当前词是旧词的新场景义），从头重新学完整 SRS；
     // 复习时则正常推进轮次。这样新意思能做到"学完立即复习、马上用"。
     if (currentMode === 'learn' && existingRound > 0) {
       nextRound = 1;
@@ -1808,6 +1853,7 @@ function finishStudy() {
   if (nextEl) nextEl.innerHTML = nextText;
 
   showPage('done');
+  // 一组完成：清除续接进度
   clearStudyProgress();
   // 完成页按钮：根据当前模式切换文案和行为
   const againBtn = document.getElementById('btn-again');
@@ -1823,11 +1869,8 @@ function finishStudy() {
   }
 }
 function confirmExit() {
-  if (currentIndex>0 && currentIndex<currentQueue.length) {
-    showConfirm('退出学习','学习还没完成，确定要退出吗？进度会保存。').then(ok=>{
-      if(ok){ stopAllSpeech(); clearStudyProgress(); showPage('home'); refreshHome(); }
-    });
-  } else { stopAllSpeech(); clearStudyProgress(); showPage('home'); refreshHome(); }
+  // 零弹窗：位置已静默保存，误触退出也不丢，首页按钮可"继续上次"续接
+  stopAllSpeech(); showPage('home'); refreshHome();
 }
 
 // ========== 设置 ==========
@@ -2501,7 +2544,7 @@ async function resetData() {
   const cfg = getConfig();
   cfg.categories = ['ai-prompt'];
   saveConfigData(cfg);
-  // 5) 清理进行中的学习进度
+  // 5) 清除续接进度
   Store.removeItem(STORAGE_KEY_PROGRESS);
   toast('所有数据已重置'); refreshHome();
 }
@@ -2517,6 +2560,106 @@ function openImportPanel() {
 }
 function closeImportPanel() {
   document.getElementById('import-mask').classList.remove('show');
+}
+
+// ========== 数据备份：导出 / 恢复 ==========
+// 纯本地应用的数据逃生通道：导出为 JSON 复制到剪贴板，换机/重装后粘贴恢复。
+const BACKUP_MAGIC = 'liteword-backup';
+
+function buildBackupPayload() {
+  return {
+    app: BACKUP_MAGIC,
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      records: getRecords(),
+      config: getConfig(),
+      streak: getStreak(),
+      customWords: (typeof getCustomWords === 'function') ? getCustomWords() : [],
+      customCats: (typeof getCustomCategories === 'function') ? getCustomCategories() : {},
+      onboard: Store.getItem(STORAGE_KEY_ONBOARD) || '1'
+    }
+  };
+}
+
+// 复制文本到剪贴板（优先 Clipboard API，回退 execCommand）
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch(e) {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch(e) { return false; }
+}
+
+// 导出备份：一键复制；复制失败时打开面板供手动长按复制
+async function exportBackup() {
+  const text = JSON.stringify(buildBackupPayload());
+  const ok = await copyTextToClipboard(text);
+  if (ok) { toast('备份已复制到剪贴板，请妥善保存'); return; }
+  document.getElementById('backup-textarea').value = text;
+  document.getElementById('backup-mask').classList.add('show');
+  toast('自动复制失败，请长按文本框手动复制');
+}
+function closeBackupPanel() {
+  document.getElementById('backup-mask').classList.remove('show');
+}
+async function copyBackupText() {
+  const text = document.getElementById('backup-textarea').value;
+  const ok = await copyTextToClipboard(text);
+  toast(ok ? '已复制到剪贴板' : '复制失败，请长按文本框手动复制');
+}
+
+// 恢复备份：粘贴导出的 JSON，校验后覆盖当前数据
+function openRestorePanel() {
+  document.getElementById('restore-mask').classList.add('show');
+  document.getElementById('restore-textarea').value = '';
+  const st = document.getElementById('restore-stats');
+  st.textContent = '';
+  st.className = 'import-stats';
+}
+function closeRestorePanel() {
+  document.getElementById('restore-mask').classList.remove('show');
+}
+function parseBackup(text) {
+  let obj;
+  try { obj = JSON.parse(text); } catch(e) { return null; }
+  if (!obj || obj.app !== BACKUP_MAGIC || !obj.data || typeof obj.data !== 'object') return null;
+  return obj.data;
+}
+async function confirmRestore() {
+  const ta = document.getElementById('restore-textarea');
+  const st = document.getElementById('restore-stats');
+  const data = parseBackup((ta.value || '').trim());
+  if (!data) {
+    st.textContent = '备份格式不正确，请粘贴完整的备份 JSON';
+    st.className = 'import-stats error';
+    return;
+  }
+  const recCount = data.records && typeof data.records === 'object' ? Object.keys(data.records).length : 0;
+  const libCount = Array.isArray(data.customWords) ? data.customWords.length : 0;
+  const ok = await showConfirm('恢复备份', '将用备份覆盖当前数据（' + recCount + ' 条学习记录、' + libCount + ' 个自定义词条）。当前数据会被替换且不可恢复，确定恢复吗？');
+  if (!ok) return;
+  Store.setItem(STORAGE_KEY_RECORDS, JSON.stringify(data.records && typeof data.records === 'object' ? data.records : {}));
+  if (data.config && typeof data.config === 'object') Store.setItem(STORAGE_KEY_CONFIG, JSON.stringify(data.config));
+  Store.setItem(STORAGE_KEY_STREAK, JSON.stringify(data.streak && typeof data.streak === 'object' ? data.streak : { count:0, lastDate:null }));
+  Store.setItem(STORAGE_KEY_CUSTOM_WORDS, JSON.stringify(Array.isArray(data.customWords) ? data.customWords : []));
+  Store.setItem(STORAGE_KEY_CUSTOM_CATS, JSON.stringify(data.customCats && typeof data.customCats === 'object' ? data.customCats : {}));
+  Store.setItem(STORAGE_KEY_ONBOARD, data.onboard || '1');
+  closeRestorePanel();
+  toast('恢复成功，即将重新加载');
+  setTimeout(() => location.reload(), 800);
 }
 
 // ========== 关于：协议 / 隐私 / 反馈 ==========
@@ -2562,72 +2705,6 @@ function openInfo(key) {
 }
 function closeInfo() {
   document.getElementById('info-mask').classList.remove('show');
-}
-
-// ========== 词库市场（占位模块，待后端接入） ==========
-// 假数据：真实场景下应改为从后端 API 拉取
-const MARKET_MOCK = [
-  { name:"AI 提示词精选", desc:"120 个 AI 对话与写 prompt 高频词", meta:"1.2k 人学习", cat:"ai", words:120 },
-  { name:"AI 模型术语", desc:"训练、推理、微调、评估专业词汇", meta:"860 人学习", cat:"ai", words:160 },
-  { name:"Python 开发", desc:"Python 语法与常用库词汇", meta:"856 人学习", cat:"dev", words:200 },
-  { name:"前端三剑客", desc:"HTML / CSS / JS 高频术语", meta:"645 人学习", cat:"dev", words:170 },
-  { name:"出国旅行必备", desc:"机场、酒店、问路、点餐", meta:"2.1k 人学习", cat:"travel", words:150 },
-  { name:"商务出行英语", desc:"邮件、会面、出差常用表达", meta:"732 人学习", cat:"travel", words:180 },
-  { name:"日常口语高频", desc:"生活场景常用动词与短语", meta:"3.4k 人学习", cat:"life", words:220 },
-  { name:"美食与点餐", desc:"点单、评价、预订词汇", meta:"598 人学习", cat:"life", words:130 }
-];
-let _marketTab = 'all';
-let _marketSearch = '';
-
-function openMarketPanel() {
-  document.getElementById('market-mask').classList.add('show');
-  _marketTab = 'all'; _marketSearch = '';
-  const input = document.getElementById('market-search-input');
-  if (input) input.value = '';
-  document.querySelectorAll('#market-tabs .market-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.cat === 'all');
-  });
-  renderMarket('');
-}
-function closeMarketPanel() {
-  document.getElementById('market-mask').classList.remove('show');
-}
-function switchMarketTab(btn) {
-  _marketTab = btn.dataset.cat;
-  document.querySelectorAll('#market-tabs .market-tab').forEach(t => t.classList.toggle('active', t === btn));
-  renderMarket(_marketSearch);
-}
-function renderMarket(kw) {
-  _marketSearch = (kw || '').trim().toLowerCase();
-  const listEl = document.getElementById('market-list');
-  const countEl = document.getElementById('market-count');
-  if (!listEl) return;
-  let items = MARKET_MOCK.filter(i => _marketTab === 'all' || i.cat === _marketTab);
-  if (_marketSearch) items = items.filter(i => i.name.toLowerCase().includes(_marketSearch));
-  if (countEl) countEl.textContent = items.length + ' 个';
-  const installed = getConfig().categories || [];
-  let html = '';
-  if (!items.length) {
-    html = '<div class="market-empty">没有找到匹配的词库</div>';
-  }
-  items.forEach(i => {
-    const isInstalled = installed.includes(i.name);
-    html += `
-      <div class="market-item">
-        <div class="market-item-main">
-          <div class="market-item-name">${i.name}</div>
-          <div class="market-item-desc">${i.desc}</div>
-          <div class="market-item-meta">${i.meta} · ${i.words} 词</div>
-        </div>
-        <button class="market-install ${isInstalled ? 'done' : ''}" onclick="installMarketItem(this, '${i.name}')">${isInstalled ? '已安装' : '安装'}</button>
-      </div>`;
-  });
-  listEl.innerHTML = html;
-}
-// 占位：真实安装逻辑应调用后端下载词库后写入本地词库，这里仅提示
-function installMarketItem(btn, name) {
-  if (btn.classList.contains('done')) return;
-  toast('「' + name + '」即将上线，敬请期待');
 }
 
 function copyImportPrompt() {
@@ -3053,56 +3130,15 @@ document.addEventListener('touchend', e=>{
   isSwiping = false;
 }, {passive:true});
 
-// ========== 引导页 ==========
-function toggleScene(el) {
-  const cat = el.dataset.cat;
-  // 单词库优先：引导页也只选一个词库，点击即切换
-  if (selectedCategories.has(cat)) return; // 已选中，保持
-  selectedCategories.clear();
-  document.querySelectorAll('.scene-card').forEach(c => c.classList.remove('selected'));
-  selectedCategories.add(cat);
-  el.classList.add('selected');
-  updateOnboardBtn();
-}
-function updateOnboardBtn() {
-  const btn = document.getElementById('onboard-btn');
-  const hint = document.getElementById('onboard-hint');
-  const btnText = document.getElementById('onboard-btn-text');
-  if (selectedCategories.size>0) {
-    const cat = [...selectedCategories][0];
-    btn.classList.add('ready');
-    hint.textContent = '将从「' + (SCENE_LABELS[cat] || cat) + '」开始学习';
-    btnText.textContent = '开启我的词库';
-  } else {
-    btn.classList.remove('ready');
-    hint.textContent = '选择一个词库开始学习';
-    btnText.textContent = '开启全部词库';
-  }
-}
+// ========== 引导页（特色介绍） ==========
 function finishOnboard() {
-  if (selectedCategories.size===0) {
-    const first = document.querySelector('.scene-card');
-    if (first) selectedCategories.add(first.dataset.cat);
-  }
   const config = getConfig();
-  config.categories = [...selectedCategories].slice(0, 1);
+  if (!config.categories || !config.categories.length) config.categories = ['ai-prompt'];
   saveConfigData(config);
   // 新用户引导完成：清除可能残留的旧学习记录和连续天数
   Store.removeItem(STORAGE_KEY_RECORDS);
   Store.removeItem(STORAGE_KEY_STREAK);
   Store.setItem(STORAGE_KEY_ONBOARD,'1');
-  document.getElementById('page-onboard').classList.remove('active');
-  document.body.classList.remove('onboarding');
-  refreshHome();
-}
-function skipOnboard() {
-  Store.setItem(STORAGE_KEY_ONBOARD,'1');
-  const config = getConfig();
-  config.categories = ['ai-prompt'];
-  saveConfigData(config);
-  // 跳过引导也清除旧记录
-  Store.removeItem(STORAGE_KEY_RECORDS);
-  Store.removeItem(STORAGE_KEY_STREAK);
   document.getElementById('page-onboard').classList.remove('active');
   document.body.classList.remove('onboarding');
   refreshHome();
@@ -3177,16 +3213,8 @@ async function init() {
     }
     checkReminder();
     updateCalendarButton();
-    // 检查是否有未完成的学习，提示恢复
-    const progress = getStudyProgress();
-    if (progress && progress.queue && progress.queue.length > 0) {
-      setTimeout(() => {
-        showConfirm('继续学习', '上次学到第 ' + (progress.index + 1) + '/' + progress.queue.length + ' 个词，要继续吗？').then(ok => {
-          if (ok) resumeStudy();
-          else clearStudyProgress();
-        });
-      }, 500);
-    }
+    // 清理旧版本遗留的学习进度键（该机制已移除）
+    Store.removeItem('lw_progress');
   }
 }
 
@@ -3254,6 +3282,14 @@ function cleanupRecords() {
           r.nextReviewTime = calcNextReview(r.currentRound, r.lastReviewTime || Date.now());
           changed = true;
         }
+      }
+      // 清理无效的 sceneReview（新义复习轨道）：字段非法、或词未掌握时不应存在
+      if (r.sceneReview != null) {
+        const sr = r.sceneReview;
+        const invalid = typeof sr !== 'object'
+          || typeof sr.round !== 'number' || isNaN(sr.round) || sr.round <= 0 || sr.round >= 7
+          || typeof sr.nextReviewTime !== 'number' || isNaN(sr.nextReviewTime) || sr.nextReviewTime <= 0;
+        if (invalid || r.currentRound !== 7) { delete r.sceneReview; changed = true; }
       }
     }
     if (changed) saveRecords(records);
